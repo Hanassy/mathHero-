@@ -240,6 +240,13 @@
     .math-display.rtl { direction: rtl; }
     .math-display .tok { display: inline-block; animation: tokIn .45s cubic-bezier(.3,1.6,.5,1) both; }
     @keyframes tokIn { from { opacity: 0; transform: translateY(-14px) scale(.6); } to { opacity: 1; transform: none; } }
+    .op { font-size: 1.1em; }
+    .op-mul { color: #fb923c; text-shadow: 0 0 10px rgba(251,146,60,.6); }
+    .op-div { color: #f472b6; text-shadow: 0 0 10px rgba(244,114,182,.5); }
+    .op-add { color: #4ade80; }
+    .op-sub { color: #c4b5fd; }
+    .op-eq  { color: #e2e8f0; }
+    .diag { background: rgba(251,146,60,.12); border: 1px dashed rgba(251,146,60,.6); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; font-weight: normal; }
     .blank {
         display: inline-block; min-width: 1.6em; text-align: center; color: var(--warning);
         border-bottom: 3px solid var(--warning); animation: blankPulse 1.6s ease-in-out infinite;
@@ -867,29 +874,45 @@ const ranks = [
 // =====================================================================
 //  State + persistence
 // =====================================================================
-const SAVE_KEY = 'mathHeroSave_v2';
+const SAVE_KEY = 'mathHeroSave_v3';
+// focus = how often the topic appears (from the 16.11 test: weak areas ↑, strong areas ↓)
+// start = starting mastery (34 = level ★★☆ for topics she already handles well)
 const topics = {
-    subtraction:    { name: 'חִסּוּר עִם פְּרִיטָה', icon: '➖' },
-    multiplication: { name: 'כֶּפֶל וְחִלּוּק', icon: '✖️' },
-    equations:      { name: 'מִשְׁוָאוֹת וְסֵדֶר פְּעֻלּוֹת', icon: '⚖️' },
-    wordProblems:   { name: 'בְּעָיוֹת מִלּוּלִיּוֹת', icon: '📜' },
-    geometry:       { name: 'גֵּאוֹמֶטְרְיָה', icon: '📐' },
-    sequences:      { name: 'סְדָרוֹת', icon: '🔢' },
-    fractions:      { name: 'שְׁבָרִים', icon: '🍕' }
+    addSub:         { name: 'חִבּוּר וְחִסּוּר', icon: '➕', focus: 1.6, start: 0 },
+    missing:        { name: 'מִסְפָּר חָסֵר וּמֹאזְנַיִם', icon: '⚖️', focus: 1.6, start: 0 },
+    placeValue:     { name: 'מִבְנֶה עֶשְׂרוֹנִי', icon: '🏛️', focus: 1.5, start: 0 },
+    wordProblems:   { name: 'בְּעָיוֹת מִלּוּלִיּוֹת', icon: '📜', focus: 1.5, start: 0 },
+    numberLine:     { name: 'יָשָׁר מִסְפָּרִים', icon: '📏', focus: 1.4, start: 0 },
+    time:           { name: 'זְמַן', icon: '⏰', focus: 1.3, start: 0 },
+    data:           { name: 'דִּיאַגְרָמוֹת', icon: '📊', focus: 1.2, start: 0 },
+    geometry:       { name: 'גֵּאוֹמֶטְרְיָה', icon: '📐', focus: 1.2, start: 0 },
+    multiplication: { name: 'כֶּפֶל וְחִלּוּק', icon: '✖️', focus: 1.0, start: 34 },
+    orderOps:       { name: 'סֵדֶר פְּעֻלּוֹת', icon: '🧮', focus: 0.7, start: 34 },
+    sequences:      { name: 'סְדָרוֹת', icon: '🔢', focus: 0.7, start: 34 },
+    fractions:      { name: 'שְׁבָרִים', icon: '🍕', focus: 0.4, start: 0 }
 };
 function freshState() {
     const t = {};
-    for (const k in topics) t[k] = { mastery: 0, solved: 0, struggle: 0 };
+    for (const k in topics) t[k] = { mastery: topics[k].start, solved: 0, struggle: 0 };
     return { name: '', storySolved: 0, totalSolved: 0, calmBreaths: 0, finished: false, topics: t };
 }
 let state = freshState();
 function loadState() {
     try {
         const raw = localStorage.getItem(SAVE_KEY);
-        if (!raw) return false;
+        if (!raw) {
+            // carry over the story progress from the earlier version (topics changed)
+            const old = JSON.parse(localStorage.getItem('mathHeroSave_v2') || 'null');
+            if (!old) return false;
+            ['name', 'storySolved', 'totalSolved', 'calmBreaths', 'finished'].forEach(k => { if (k in old) state[k] = old[k]; });
+            saveState();
+            return state.totalSolved > 0;
+        }
         const s = JSON.parse(raw);
-        state = Object.assign(freshState(), s);
-        for (const k in topics) state.topics[k] = Object.assign({ mastery: 0, solved: 0, struggle: 0 }, s.topics && s.topics[k]);
+        const fresh = freshState();
+        state = Object.assign(fresh, s);
+        state.topics = {};
+        for (const k in topics) state.topics[k] = Object.assign({}, fresh.topics[k], s.topics && s.topics[k]);
         return state.totalSolved > 0;
     } catch (e) { return false; }
 }
@@ -926,44 +949,195 @@ function subSteps(a, b) {
     return { parts, lines };
 }
 
+function perms(arr) {
+    if (arr.length <= 1) return [arr];
+    const out = [];
+    arr.forEach((x, i) => perms([...arr.slice(0, i), ...arr.slice(i + 1)]).forEach(p => out.push([x, ...p])));
+    return out;
+}
+const PLACE_NAMES = ['אֲלָפִים', 'מֵאוֹת', 'עֲשָׂרוֹת', 'יְחִידוֹת'];
+const PLACE_VALUES = [1000, 100, 10, 1];
+function placeTable(digits, hi = -1) {
+    const cell = (t, i, head) => `<td style="padding:4px 10px; border:1px solid rgba(253,230,138,.4); ${i === hi ? 'background:rgba(245,158,11,.3); font-weight:bold;' : ''}">${t}</td>`;
+    return `<table dir="ltr" style="border-collapse:collapse; margin:6px auto; text-align:center; font-size:.95rem;">
+        <tr>${PLACE_NAMES.map((n, i) => cell(n, i, true)).join('')}</tr>
+        <tr>${digits.map((d, i) => cell(d, i)).join('')}</tr></table>`;
+}
+const digitsOf = n => String(n).padStart(4, '0').split('').map(Number);
+const signSlip = 'שִׂימִי לֵב לַסִּימָן – זֶה <strong>כֶּפֶל (×)</strong> וְלֹא חִבּוּר! 🧡';
+
 const generators = {
-    subtraction(lv) {
+    // ---------- מבנה עשרוני (מבחן: שאלות 1, 2, 3) ----------
+    placeValue(lv) {
+        if (lv === 1) {
+            const digits = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, 4);
+            const n = +digits.join('');
+            const pos = randInt(0, 3), d = digits[pos], value = d * PLACE_VALUES[pos];
+            return {
+                question: `מָה הָעֵרֶךְ שֶׁל הַסִּפְרָה ${d} בַּמִּסְפָּר ${fmt(n)}?`,
+                math: [fmt(n)],
+                spoken: `מָה הָעֵרֶךְ שֶׁל הַסִּפְרָה ${d} בַּמִּסְפָּר ${n}?`,
+                type: 'input', answer: value,
+                hint: `💡 <strong>טַבְלַת הַמְּקוֹמוֹת:</strong>${placeTable(digits, pos)}הַסִּפְרָה ${L(d)} נִמְצֵאת בְּמָקוֹם הַ${PLACE_NAMES[pos]}.`,
+                solution: [`${L(d)} בְּמָקוֹם הַ${PLACE_NAMES[pos]}`, L(`${d} × ${PLACE_VALUES[pos]} = ${fmt(value)}`)],
+                diagnose: v => (v === d && pos < 3) ? `${L(d)} הִיא הַסִּפְרָה. אֲבָל הָעֵרֶךְ שֶׁלָּהּ תָּלוּי בַּמָּקוֹם שֶׁלָּהּ בַּמִּסְפָּר!` : null
+            };
+        }
+        if (lv === 2) {
+            if (Math.random() < 0.6) {
+                // "סמנו את המספר שגדול ב-10 מ-5,555"
+                const n = Math.random() < 0.5 ? randInt(2, 8) * 1111 : randInt(2, 8) * 1000 + randInt(1, 8) * 100 + randInt(1, 8) * 10 + randInt(1, 8);
+                const by = pick([10, 100, 1000]), up = Math.random() < 0.65;
+                const place = { 10: 'הָעֲשָׂרוֹת', 100: 'הַמֵּאוֹת', 1000: 'הָאֲלָפִים' }[by];
+                const ans = fmt(up ? n + by : n - by);
+                return {
+                    question: `סַמְּנִי אֶת הַמִּסְפָּר שֶׁ${up ? 'גָּדוֹל' : 'קָטָן'} בְּ-${by} מִ-${fmt(n)}:`,
+                    spoken: `אֵיזֶה מִסְפָּר ${up ? 'גָּדוֹל' : 'קָטָן'} בְּ-${by} מִ-${n}?`,
+                    type: 'options', optionsLtr: true,
+                    options: [1, 10, 100, 1000].map(x => fmt(up ? n + x : n - x)), answer: ans,
+                    hint: `💡 <strong>${up ? 'הוֹסָפַת' : 'הוֹרָדַת'} ${by} מְשַׁנָּה רַק אֶת סִפְרַת ${place}!</strong>${placeTable(digitsOf(n), [1000, 100, 10].indexOf(by))}
+                           סִפְרַת ${place} ${up ? 'גְּדֵלָה' : 'קְטֵנָה'} בְּ-1, וְכָל הַשְּׁאָר נִשְׁאָר אוֹתוֹ דָּבָר.`,
+                    solution: [L(`${fmt(n)} ${up ? '+' : '−'} ${by} = ${ans}`), `רַק סִפְרַת ${place} הִשְׁתַּנְּתָה.`],
+                    diagnose: v => v !== ans ? `בְּאֵיזֶה מָקוֹם הִשְׁתַּנְּתָה הַסִּפְרָה בַּמִּסְפָּר שֶׁבָּחַרְתְּ? ${L(by)} שַׁיָּךְ לְ${place}.` : null
+                };
+            }
+            // "באיזה מספר ערך הספרה 6 הוא הגדול ביותר?"
+            const d = randInt(2, 9);
+            const others = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9].filter(x => x !== d));
+            const nums = [0, 1, 2, 3].map(pos => {
+                const ds = shuffle(others).slice(0, 3);
+                ds.splice(pos, 0, d);
+                return fmt(+ds.join(''));
+            });
+            return {
+                question: `בְּאֵיזֶה מֵהַמִּסְפָּרִים הָעֵרֶךְ שֶׁל הַסִּפְרָה ${d} הוּא הַגָּדוֹל בְּיוֹתֵר?`,
+                spoken: `בְּאֵיזֶה מִסְפָּר הָעֵרֶךְ שֶׁל הַסִּפְרָה ${d} הוּא הַגָּדוֹל בְּיוֹתֵר?`,
+                type: 'options', optionsLtr: true, options: nums, answer: nums[0],
+                hint: `💡 <strong>הָעֵרֶךְ תָּלוּי בַּמָּקוֹם:</strong><br>${L(d)} בַּאֲלָפִים שָׁוֶה ${L(fmt(d * 1000))}, וּבַמֵּאוֹת רַק ${L(d * 100)}. חַפְּשִׂי אֶת הַמִּסְפָּר שֶׁבּוֹ ${L(d)} הֲכִי שְׂמָאלִית.`,
+                solution: [`בְּ-${L(nums[0])} הַסִּפְרָה ${L(d)} בְּמָקוֹם הָאֲלָפִים.`, `הָעֵרֶךְ שֶׁלָּהּ: ${L(fmt(d * 1000))}`]
+            };
+        }
+        // "השתמשו באותן ספרות של 5,802 וכתבו מספר זוגי הגדול ממנו" → הגדול/הקטן ביותר עם תנאי
+        let digits;
+        do { digits = shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, 4); }
+        while (!digits.some(x => x % 2 === 0) || !digits.some(x => x % 2 === 1));
+        if (digits[0] === 0) [digits[0], digits[1]] = [digits[1], digits[0]];
+        const n = +digits.join('');
+        const wantEven = Math.random() < 0.5, wantMax = Math.random() < 0.7;
+        const all = perms(digits).filter(p => p[0] !== 0).map(p => +p.join(''));
+        const cands = all.filter(x => (x % 2 === 0) === wantEven);
+        const ans = wantMax ? Math.max(...cands) : Math.min(...cands);
+        const parity = wantEven ? 'זוּגִי' : 'אִי-זוּגִי';
+        const units = ans % 10;
+        return {
+            question: `הִשְׁתַּמְּשִׁי בְּכָל הַסְּפָרוֹת שֶׁל ${fmt(n)} וּכְתְבִי אֶת הַמִּסְפָּר הַ${parity} הַ${wantMax ? 'גָּדוֹל' : 'קָטָן'} בְּיוֹתֵר:`,
+            math: digits.map(x => `<span style="border:2px solid #38bdf8; border-radius:8px; padding:0 8px;">${x}</span>`),
+            spoken: `סַדְּרִי אֶת הַסְּפָרוֹת ${digits.join(', ')} לַמִּסְפָּר הַ${parity} הַ${wantMax ? 'גָּדוֹל' : 'קָטָן'} בְּיוֹתֵר.`,
+            type: 'input', answer: ans,
+            hint: `💡 <strong>שְׁנֵי שְׁלַבִּים:</strong><br>
+                   1. מִסְפָּר ${parity} = סִפְרַת הַיְּחִידוֹת ${wantEven ? 'זוּגִית (0, 2, 4, 6, 8)' : 'אִי-זוּגִית (1, 3, 5, 7, 9)'}. קֹדֶם בַּחְרִי אֵיזוֹ סִפְרָה תֵּשֵׁב בַּיְּחִידוֹת.<br>
+                   2. אֶת שְׁאָר הַסְּפָרוֹת סַדְּרִי ${wantMax ? 'מֵהַגְּדוֹלָה לַקְּטַנָּה' : 'מֵהַקְּטַנָּה לַגְּדוֹלָה (אֲבָל 0 לֹא יָכוֹל לִהְיוֹת רִאשׁוֹן!)'}.`,
+            solution: [`בַּיְּחִידוֹת: ${L(units)} (${parity})`, `שְׁאָר הַסְּפָרוֹת ${wantMax ? 'מֵהַגְּדוֹלָה לַקְּטַנָּה' : 'מֵהַקְּטַנָּה לַגְּדוֹלָה'}:`, L(fmt(ans))],
+            diagnose: v => {
+                if (cands.includes(v)) return `הַמִּסְפָּר שֶׁלָּךְ בֶּאֱמֶת ${parity} וּבָנוּי מֵהַסְּפָרוֹת הַנְּכוֹנוֹת – יָפֶה! עַכְשָׁו נַסִּי לְסַדֵּר אוֹתוֹ כָּךְ שֶׁיִּהְיֶה ${wantMax ? 'גָּדוֹל' : 'קָטָן'} עוֹד יוֹתֵר.`;
+                if (all.includes(v)) return `הַסְּפָרוֹת נְכוֹנוֹת, אֲבָל הַמִּסְפָּר לֹא ${parity}. בִּדְקִי אֶת סִפְרַת הַיְּחִידוֹת.`;
+                return null;
+            }
+        };
+    },
+
+    // ---------- ישר מספרים (מבחן: שאלה 4) ----------
+    numberLine(lv) {
+        const step = lv === 1 ? pick([10, 100]) : lv === 2 ? pick([5, 20, 25, 50]) : pick([15, 30, 150, 250]);
+        const start = step * randInt(lv === 1 ? 0 : 1, 6);
+        const labels = lv === 1 ? [0, 1] : lv === 2 ? [0, 2] : [1, 3];
+        const target = randInt(4, 8);
+        const A = start + step * labels[0], B = start + step * labels[1], gap = labels[1] - labels[0];
+        const ans = start + step * target, jumps = target - labels[1];
+        return {
+            question: 'לִפְנֵיךְ יָשָׁר מִסְפָּרִים. אֵיזֶה מִסְפָּר מַתְאִים לַמָּקוֹם הַמְּסֻמָּן בְּסִימַן שְׁאֵלָה?',
+            svg: numberLineSvg(start, step, labels, target),
+            spoken: 'הִתְבּוֹנְנִי בַּיָּשָׁר. אֵיזֶה מִסְפָּר מַתְאִים לַמָּקוֹם שֶׁל סִימַן הַשְּׁאֵלָה?',
+            type: 'input', answer: ans,
+            hint: `💡 <strong>קֹדֶם מוֹצְאִים אֶת גֹּדֶל הַקְּפִיצָה:</strong><br>` + (gap === 1
+                ? `מִ-${L(A)} לְ-${L(B)} יֵשׁ קְפִיצָה אַחַת. כַּמָּה הִיא שָׁוָה?`
+                : `בֵּין ${L(A)} לְ-${L(B)} יֵשׁ ${gap} קְפִיצוֹת, לָכֵן קְפִיצָה אַחַת = ${L(`${B - A} : ${gap}`)}.`) +
+                `<br>אַחַר כָּךְ סִפְרִי כַּמָּה קְפִיצוֹת יֵשׁ מִ-${L(B)} עַד סִימַן הַשְּׁאֵלָה.`,
+            solution: [`גֹּדֶל קְפִיצָה: ${L(`${B - A} : ${gap} = ${step}`)}`, `מִ-${L(B)} עַד הַסִּימָן: ${jumps} קְפִיצוֹת`, L(`${B} + ${jumps} × ${step} = ${ans}`)],
+            diagnose: v => (step !== 10 && v === B + jumps * 10) ? 'נִרְאֶה שֶׁסָּפַרְתְּ בִּקְפִיצוֹת שֶׁל 10. בִּדְקִי קֹדֶם כַּמָּה שָׁוָה קְפִיצָה אַחַת בַּיָּשָׁר הַזֶּה.' : null
+        };
+    },
+
+    // ---------- חיבור וחיסור (מבחן: שאלה 7 א-ג) ----------
+    addSub(lv) {
+        if (lv === 1 && Math.random() < 0.45) {
+            const a = randInt(2, 6) * 100 + randInt(1, 8) * 10 + randInt(5, 9);
+            const b = randInt(1, 3) * 100 + randInt(1, 8) * 10 + randInt(3, 9);
+            const s = a + b;
+            const [a1, a2, a3] = digitsOf(a).slice(1), [b1, b2, b3] = digitsOf(b).slice(1);
+            return {
+                question: pick(['חַבְּרִי אֶת שְׁנֵי חֶלְקֵי הַקּוֹד:', 'כַּמָּה אֵנֶרְגִּיָה יֵשׁ בִּשְׁתֵּי הַסּוֹלְלוֹת יַחַד?']),
+                math: [a, '+', b, '=', BLANK],
+                spoken: `כַּמָּה זֶה ${a} וְעוֹד ${b}?`,
+                type: 'input', answer: s,
+                hint: `💡 <strong>מְחַבְּרִים כָּל מָקוֹם בְּנִפְרָד:</strong><br>מֵאוֹת: ${L(`${a1 * 100} + ${b1 * 100}`)}, עֲשָׂרוֹת: ${L(`${a2 * 10} + ${b2 * 10}`)}, יְחִידוֹת: ${L(`${a3} + ${b3}`)}.<br>בַּסּוֹף מְחַבְּרִים אֶת שְׁלוֹשֶׁת הַחֲלָקִים.`,
+                solution: [L(`${a1 * 100} + ${b1 * 100} = ${(a1 + b1) * 100}`), L(`${a2 * 10} + ${b2 * 10} = ${(a2 + b2) * 10}`), L(`${a3} + ${b3} = ${a3 + b3}`), L(`${(a1 + b1) * 100} + ${(a2 + b2) * 10} + ${a3 + b3} = ${s}`)]
+            };
+        }
         let a, b;
         if (lv === 1) { a = randInt(3, 9) * 100 + randInt(2, 9) * 10 + randInt(0, 4); b = randInt(1, 8) * 10 + randInt(5, 9); }
-        else if (lv === 2) { a = randInt(4, 8) * 100 + randInt(1, 5); b = randInt(1, 3) * 100 + randInt(4, 8) * 10 + randInt(6, 9); }
-        else if (Math.random() < 0.5) { a = randInt(3, 9) * 1000; b = randInt(2, 8) * 100 + randInt(1, 9) * 10 + randInt(0, 9); }
-        else { a = randInt(3, 9) * 1000 + randInt(0, 3) * 100 + randInt(0, 2) * 10 + randInt(0, 4); b = randInt(2, 9) * 100 + randInt(3, 9) * 10 + randInt(5, 9); }
+        else if (lv === 2) { const X = randInt(4, 9), Y = randInt(0, 5); a = X * 100 + Y; b = randInt(1, X - 2) * 100 + randInt(2, 9) * 10 + randInt(Y + 1, 9); }
+        else if (Math.random() < 0.6) { a = randInt(3, 9) * 1000; b = randInt(2, 9) * 100 + randInt(0, 9) * 10 + pick([0, randInt(1, 9)]); }
+        else { a = randInt(3, 9) * 1000 + randInt(0, 2) * 10 + randInt(0, 4); b = randInt(2, 9) * 100 + randInt(3, 9) * 10 + randInt(5, 9); }
         const ans = a - b;
         const { parts, lines } = subSteps(a, b);
+        const round = a % 100 === 0;
         return {
             question: pick(['פַּעְנְחִי אֶת קוֹד הַפְּרִיצָה:', 'חִשְׁבִי אֶת הַהֶפְרֵשׁ כְּדֵי לְנַטְרֵל אֶת הַמַּנְעוּל:', 'כַּמָּה אֵנֶרְגִּיָה נִשְׁאֲרָה בַּסּוֹלְלָה?']),
             math: [fmt(a), '−', b, '=', BLANK],
             spoken: `כַּמָּה זֶה ${a} פָּחוֹת ${b}? קְחִי נְשִׁימָה וְחִשְׁבִי לְאַט.`,
             type: 'input', answer: ans,
-            hint: `💡 <strong>שִׁיטַת הַפֵּרוּק הָרְגוּעָה:</strong><br>
-                   מְפָרְקִים אֶת ${L(b)} לַחֲלָקִים: ${L(parts.join(' + '))}, וּמוֹרִידִים כָּל חֵלֶק בְּנִפְרָד.<br>
-                   הַצַּעַד הָרִאשׁוֹן: ${lines[0]}<br>
-                   🔍 <strong>בְּדִיקָה הֲפוּכָה:</strong> הַתְּשׁוּבָה + ${L(b)} צְרִיכָה לָתֵת בְּדִיּוּק ${L(fmt(a))}.`,
-            solution: [...lines, `✅ בְּדִיקָה: ${L(`${fmt(ans)} + ${b} = ${fmt(a)}`)}`]
+            hint: (round
+                ? `💡 <strong>טְרִיק הָאֲפָסִים (בְּלִי פְּרִיטָה!):</strong><br>${L(`${fmt(a)} = ${fmt(a - 1)} + 1`)}.<br>חַסְּרִי ${L(`${fmt(a - 1)} − ${b}`)} – אֵין צֹרֶךְ לִפְרֹט! – וּבַסּוֹף הוֹסִיפִי 1.`
+                : `💡 <strong>שִׁיטַת הַפֵּרוּק הָרְגוּעָה:</strong><br>מְפָרְקִים אֶת ${L(b)} לַחֲלָקִים: ${L(parts.join(' + '))}, וּמוֹרִידִים כָּל חֵלֶק בְּנִפְרָד.<br>הַצַּעַד הָרִאשׁוֹן: ${lines[0]}`) +
+                `<br>🔍 <strong>בְּדִיקָה הֲפוּכָה:</strong> הַתְּשׁוּבָה + ${L(b)} צְרִיכָה לָתֵת בְּדִיּוּק ${L(fmt(a))}.`,
+            solution: round
+                ? [L(`${fmt(a - 1)} − ${b} = ${fmt(ans - 1)}`), L(`${fmt(ans - 1)} + 1 = ${fmt(ans)}`), `✅ בְּדִיקָה: ${L(`${fmt(ans)} + ${b} = ${fmt(a)}`)}`]
+                : [...lines, `✅ בְּדִיקָה: ${L(`${fmt(ans)} + ${b} = ${fmt(a)}`)}`],
+            diagnose: v => v > a
+                ? `בְּחִסּוּר הַתּוֹצָאָה תָּמִיד קְטַנָּה מֵהַמִּסְפָּר הָרִאשׁוֹן (${L(fmt(a))}), וְהַתְּשׁוּבָה שֶׁלָּךְ גְּדוֹלָה מִמֶּנּוּ.`
+                : `בְּדִיקָה הֲפוּכָה: ${L(`${fmt(v)} + ${b} = ${fmt(v + b)}`)}, וְלֹא ${L(fmt(a))}. בּוֹאִי נִבְדֹּק שׁוּב.`
         };
     },
 
+    // ---------- כפל וחילוק (מבחן: שאלה 7ד, 10) ----------
     multiplication(lv) {
         if (lv === 1) {
-            const a = pick([2, 3, 4, 5, 10]), b = randInt(2, 10);
-            const ans = a * b;
-            const hint = b <= 5
-                ? `חִבּוּר חוֹזֵר: ${L(Array(b).fill(a).join(' + '))}`
-                : `פַּרְקִי: ${L(`${a} × 5 = ${a * 5}`)}, וְעוֹד ${L(`${a} × ${b - 5} = ${a * (b - 5)}`)}. עַכְשָׁו חַבְּרִי!`;
+            if (Math.random() < 0.4) {
+                const n = randInt(12, 99);
+                return {
+                    question: 'כֶּפֶל בְּ-10 – הַטְּרִיק שֶׁל הַסּוֹכְנוֹת:',
+                    math: [10, '×', n, '=', BLANK],
+                    spoken: `כַּמָּה זֶה 10 כָּפוּל ${n}?`,
+                    type: 'input', answer: n * 10,
+                    hint: `💡 <strong>כֶּפֶל בְּ-10:</strong> כָּל סִפְרָה זָזָה מָקוֹם אֶחָד שְׂמָאלָה, וּבַיְּחִידוֹת נִכְנָס 0.`,
+                    solution: [L(`${n} × 10 = ${n * 10}`)],
+                    diagnose: v => v === n + 10 ? signSlip : null
+                };
+            }
+            const a = randInt(2, 10), b = randInt(2, 10), ans = a * b;
             return {
                 question: 'מַנְעוּל הַכֶּפֶל נִנְעַל! מָה הַקּוֹד?',
                 math: [a, '×', b, '=', BLANK],
                 spoken: `כַּמָּה זֶה ${a} כָּפוּל ${b}?`,
                 type: 'input', answer: ans,
-                hint: `💡 <strong>טְרִיק הַכֶּפֶל:</strong><br>${hint}`,
+                hint: b <= 5
+                    ? `💡 <strong>חִבּוּר חוֹזֵר:</strong> ${L(Array(b).fill(a).join(' + '))}`
+                    : `💡 <strong>פַּרְקִי:</strong> ${L(`${a} × 5 = ${a * 5}`)}, וְעוֹד ${L(`${a} × ${b - 5} = ${a * (b - 5)}`)}. עַכְשָׁו חַבְּרִי!`,
                 solution: b <= 5
                     ? [L(`${Array(b).fill(a).join(' + ')} = ${ans}`)]
-                    : [L(`${a} × 5 = ${a * 5}`), L(`${a} × ${b - 5} = ${a * (b - 5)}`), L(`${a * 5} + ${a * (b - 5)} = ${ans}`)]
+                    : [L(`${a} × 5 = ${a * 5}`), L(`${a} × ${b - 5} = ${a * (b - 5)}`), L(`${a * 5} + ${a * (b - 5)} = ${ans}`)],
+                diagnose: v => v === a + b ? signSlip : null
             };
         }
         if (lv === 2) {
@@ -974,7 +1148,7 @@ const generators = {
                 spoken: `כַּמָּה זֶה ${p} לְחַלֵּק לְ-${a}?`,
                 type: 'input', answer: q,
                 hint: `💡 <strong>חִלּוּק הוּא כֶּפֶל הָפוּךְ:</strong><br>אֵיזֶה מִסְפָּר כָּפוּל ${L(a)} שָׁוֶה ${L(p)}? ${L(`${a} × ? = ${p}`)}`,
-                solution: [`חִלּוּק הוּא כֶּפֶל הָפוּךְ:`, L(`${a} × ${q} = ${p}`), `לָכֵן ${L(`${p} : ${a} = ${q}`)}`]
+                solution: ['חִלּוּק הוּא כֶּפֶל הָפוּךְ:', L(`${a} × ${q} = ${p}`), `לָכֵן ${L(`${p} : ${a} = ${q}`)}`]
             };
         }
         const t = randInt(1, 4), o = randInt(1, 9), m = randInt(3, 9), n = t * 10 + o;
@@ -983,111 +1157,283 @@ const generators = {
             math: [n, '×', m, '=', BLANK],
             spoken: `כַּמָּה זֶה ${n} כָּפוּל ${m}?`,
             type: 'input', answer: n * m,
-            hint: `💡 <strong>חֹק הַפִּלּוּג:</strong><br>פַּרְקִי אֶת ${L(n)} לְ-${L(`${t * 10} + ${o}`)}.<br>
-                   קֹדֶם ${L(`${t * 10} × ${m}`)}, אַחַר כָּךְ ${L(`${o} × ${m}`)}, וּבַסּוֹף חַבְּרִי.`,
-            solution: [L(`${t * 10} × ${m} = ${t * 10 * m}`), L(`${o} × ${m} = ${o * m}`), L(`${t * 10 * m} + ${o * m} = ${n * m}`)]
+            hint: `💡 <strong>חֹק הַפִּלּוּג:</strong><br>פַּרְקִי אֶת ${L(n)} לְ-${L(`${t * 10} + ${o}`)}.<br>קֹדֶם ${L(`${t * 10} × ${m}`)}, אַחַר כָּךְ ${L(`${o} × ${m}`)}, וּבַסּוֹף חַבְּרִי.`,
+            solution: [L(`${t * 10} × ${m} = ${t * 10 * m}`), L(`${o} × ${m} = ${o * m}`), L(`${t * 10 * m} + ${o * m} = ${n * m}`)],
+            diagnose: v => v === n + m ? signSlip : null
         };
     },
 
-    equations(lv) {
+    // ---------- מספר חסר ומאזניים (מבחן: שאלות 6, 8) ----------
+    missing(lv) {
         if (lv === 1) {
-            if (Math.random() < 0.5) {
-                const a = randInt(12, 68), b = randInt(11, 29), c = a + b;
-                return {
-                    question: 'אֵיזֶה מִסְפָּר חָסֵר כְּדֵי לְאַזֵּן אֶת הַמֹּאזְנַיִם?',
-                    math: [BLANK, '+', b, '=', c],
-                    spoken: `כַּמָּה וְעוֹד ${b} שָׁוֶה ${c}?`,
-                    type: 'input', answer: a,
-                    hint: `💡 <strong>מְחַפְּשִׂים מְחֻבָּר חָסֵר?</strong><br>מְחַסְּרִים: ${L(`${c} − ${b}`)}.`,
-                    solution: [L(`${c} − ${b} = ${a}`), `✅ בְּדִיקָה: ${L(`${a} + ${b} = ${c}`)}`]
-                };
-            }
-            const f = randInt(2, 9), m = randInt(2, 9);
-            return {
-                question: 'שִׂימִי לֵב לְסִימַן הַכֶּפֶל! אֵיזֶה מִסְפָּר יַפְעִיל אֶת הַמָּנוֹעַ?',
-                math: [BLANK, '×', m, '=', f * m],
-                spoken: `כַּמָּה כָּפוּל ${m} שָׁוֶה ${f * m}?`,
-                type: 'input', answer: f,
-                hint: `💡 <strong>עִצְרִי וּבִדְקִי סִימָן:</strong><br>הַסִּימָן הוּא <strong>כֶּפֶל (×)</strong>! כַּמָּה פְּעָמִים ${L(m)} נִכְנָס בְּתוֹךְ ${L(f * m)}?`,
-                solution: [L(`${f * m} : ${m} = ${f}`), `✅ בְּדִיקָה: ${L(`${f} × ${m} = ${f * m}`)}`]
-            };
-        }
-        if (lv === 2) {
-            if (Math.random() < 0.5) {
-                const base = randInt(6, 9) * 100 + 60, sub1 = randInt(3, 4) * 100 + 50, diff = pick([100, 200]);
-                const left2 = base - diff, ans = sub1 - diff;
-                return {
-                    question: 'אַזְּנִי אֶת מֹאזְנֵי הַלֵּיזֶר בְּלִי לְחַשֵּׁב אֶת כָּל הַתַּרְגִּיל! אֵיזֶה מִסְפָּר חָסֵר?',
-                    math: [base, '−', sub1, '=', left2, '−', BLANK],
-                    spoken: `אַזְּנִי אֶת הַמִּשְׁוָאָה: ${base} פָּחוֹת ${sub1} שָׁוֶה לְ-${left2} פָּחוֹת כַּמָּה?`,
-                    type: 'input', answer: ans,
-                    hint: `💡 <strong>סוֹד הַמֹּאזְנַיִם:</strong><br>הַמִּסְפָּר הָרִאשׁוֹן יָרַד מִ-${L(base)} לְ-${L(left2)} (יָרַד בְּ-${diff}).<br>
-                           כְּדֵי שֶׁהַתּוֹצָאָה תִּשָּׁאֵר שָׁוָה, גַּם אֶת ${L(sub1)} צָרִיךְ לְהַקְטִין בְּ-${diff}!`,
-                    solution: [L(`${sub1} − ${diff} = ${ans}`), `✅ בְּדִיקָה: ${L(`${base} − ${sub1} = ${base - sub1}`)} וְגַם ${L(`${left2} − ${ans} = ${left2 - ans}`)}`]
-                };
-            }
-            const factor = randInt(3, 8), mult = pick([20, 30, 50]), prod = factor * mult;
-            return {
-                question: 'שִׂימִי לֵב לְסִימַן הַכֶּפֶל! אֵיזֶה מִסְפָּר יַפְעִיל אֶת הַמָּנוֹעַ?',
-                math: [BLANK, '×', mult, '=', prod],
-                spoken: `כַּמָּה כָּפוּל ${mult} שָׁוֶה ${prod}? שִׂימִי לֵב שֶׁזֶּה כֶּפֶל וְלֹא חִבּוּר.`,
-                type: 'input', answer: factor,
-                hint: `💡 <strong>טְרִיק הָעֲשָׂרוֹת:</strong><br>${L(mult)} זֶה ${L(`${mult / 10} × 10`)}. אָז כַּמָּה פְּעָמִים ${L(mult)} נִכְנָס בְּ-${L(prod)}?<br>נַסִּי: ${L(`${prod / 10} : ${mult / 10}`)}`,
-                solution: [L(`${prod / 10} : ${mult / 10} = ${factor}`), `✅ בְּדִיקָה: ${L(`${factor} × ${mult} = ${prod}`)}`]
-            };
-        }
-        if (Math.random() < 0.5) {
-            const a = randInt(10, 25), b = randInt(2, 4), c = randInt(12, 20), d = randInt(4, 9);
-            const ans = a + b * (c - d);
-            return {
-                question: 'אַתְּ אַלּוּפָה בְּסֵדֶר פְּעֻלּוֹת חֶשְׁבּוֹן! פִּתְרִי אֶת הַקּוֹד:',
-                math: [a, '+', b, '×', `(${c} − ${d})`, '=', BLANK],
-                spoken: `פִּתְרִי לְפִי סֵדֶר פְּעֻלּוֹת חֶשְׁבּוֹן: ${a} וְעוֹד ${b} כָּפוּל, בְּסוֹגְרַיִם, ${c} פָּחוֹת ${d}.`,
-                type: 'input', answer: ans,
-                hint: `💡 <strong>שְׁלַבֵּי הַפְּעֻלָּה:</strong><br>1. קֹדֶם סוֹגְרַיִם.<br>2. אַחַר כָּךְ כֶּפֶל.<br>3. בַּסּוֹף חִבּוּר.`,
-                solution: [`1. סוֹגְרַיִם: ${L(`${c} − ${d} = ${c - d}`)}`, `2. כֶּפֶל: ${L(`${b} × ${c - d} = ${b * (c - d)}`)}`, `3. חִבּוּר: ${L(`${a} + ${b * (c - d)} = ${ans}`)}`]
-            };
-        }
-        const a = randInt(3, 9), b = randInt(4, 9), c = randInt(5, a * b - 2);
-        return {
-            question: 'מָה בָּא קֹדֶם? פִּתְרִי לְפִי סֵדֶר פְּעֻלּוֹת:',
-            math: [a, '×', b, '−', c, '=', BLANK],
-            spoken: `${a} כָּפוּל ${b} פָּחוֹת ${c}. כַּמָּה זֶה?`,
-            type: 'input', answer: a * b - c,
-            hint: `💡 <strong>כֶּפֶל לִפְנֵי חִסּוּר!</strong><br>קֹדֶם חַשְּׁבִי ${L(`${a} × ${b}`)}, וְרַק אַחַר כָּךְ הוֹרִידִי ${L(c)}.`,
-            solution: [`1. כֶּפֶל: ${L(`${a} × ${b} = ${a * b}`)}`, `2. חִסּוּר: ${L(`${a * b} − ${c} = ${a * b - c}`)}`]
-        };
-    },
-
-    geometry(lv) {
-        if (lv === 1) {
+            const n = randInt(120, 990);
             const kinds = [
-                { name: 'זָוִית חַדָּה (קְטַנָּה מִ-90°)', deg: randInt(25, 70) },
-                { name: 'זָוִית יְשָׁרָה (בְּדִיּוּק 90°)', deg: 90 },
-                { name: 'זָוִית קֵהָה (גְּדוֹלָה מִ-90°)', deg: randInt(115, 160) }
+                { math: [n, ':', 1, '=', n, '+', BLANK], ans: 0, spoken: `${n} לְחַלֵּק לְ-1 שָׁוֶה ${n} וְעוֹד כַּמָּה?`, why: `${L(`${n} : 1 = ${n}`)} – חִלּוּק בְּ-1 לֹא מְשַׁנֶּה אֶת הַמִּסְפָּר. אָז מָה צָרִיךְ לְהוֹסִיף לְ-${L(n)} כְּדֵי לְקַבֵּל ${L(n)}?` },
+                { math: [n, '×', 1, '=', n, '+', BLANK], ans: 0, spoken: `${n} כָּפוּל 1 שָׁוֶה ${n} וְעוֹד כַּמָּה?`, why: `${L(`${n} × 1 = ${n}`)} – כֶּפֶל בְּ-1 לֹא מְשַׁנֶּה אֶת הַמִּסְפָּר. אָז מָה מוֹסִיפִים?` },
+                { math: [n, '+', 0, '=', n, '×', BLANK], ans: 1, spoken: `${n} וְעוֹד 0 שָׁוֶה ${n} כָּפוּל כַּמָּה?`, why: `${L(`${n} + 0 = ${n}`)}. בְּאֵיזֶה מִסְפָּר כּוֹפְלִים בְּלִי לְשַׁנּוֹת?` },
+                { math: [n, '×', 0, '=', BLANK], ans: 0, spoken: `כַּמָּה זֶה ${n} כָּפוּל 0?`, why: `${L(n)} פְּעָמִים כְּלוּם = כְּלוּם.` },
+                { math: [n, ':', n, '=', BLANK], ans: 1, spoken: `כַּמָּה זֶה ${n} לְחַלֵּק לְ-${n}?`, why: `כַּמָּה פְּעָמִים ${L(n)} נִכְנָס בְּתוֹךְ עַצְמוֹ?` },
+                { math: [n, '−', n, '=', 7, '×', BLANK], ans: 0, spoken: `${n} פָּחוֹת ${n} שָׁוֶה 7 כָּפוּל כַּמָּה?`, why: `${L(`${n} − ${n} = 0`)}. אֵיזֶה מִסְפָּר כָּפוּל 7 נוֹתֵן 0?` }
             ];
-            const chosen = pick(kinds);
+            const k = pick(kinds);
             return {
-                question: 'מַכַּ"ם הַלֵּיזֶר קָלַט קֶרֶן אֵנֶרְגִּיָה. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
-                svg: angleSvg(chosen.deg),
-                spoken: 'הִתְבּוֹנְנִי בַּשִּׂרְטוּט. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
-                type: 'options', options: kinds.map(k => k.name), answer: chosen.name,
-                hint: `💡 <strong>בְּדִיקַת פִּנַּת הַדַּף:</strong><br>דַּמְיְנִי פִּנָּה שֶׁל מַחְבֶּרֶת (זָוִית יְשָׁרָה). הַאִם הַפֶּתַח כָּאן קָטָן יוֹתֵר, שָׁוֶה, אוֹ רָחָב יוֹתֵר מִפִּנָּה?`,
-                solution: [`הַזָּוִית בַּשִּׂרְטוּט הִיא בְּעֵרֶךְ ${L(chosen.deg + '°')}.`, `לָכֵן זוֹ ${chosen.name}.`]
+                question: 'חֻקֵּי הַקֶּסֶם שֶׁל 0 וְ-1! הַשְׁלִימִי אֶת הַמִּסְפָּר הֶחָסֵר:',
+                math: k.math, spoken: k.spoken, type: 'input', answer: k.ans,
+                hint: `💡 <strong>חֻקֵּי 0 וְ-1:</strong><br>כֶּפֶל אוֹ חִלּוּק בְּ-1 – הַמִּסְפָּר לֹא מִשְׁתַּנֶּה.<br>חִבּוּר אוֹ חִסּוּר שֶׁל 0 – הַמִּסְפָּר לֹא מִשְׁתַּנֶּה.<br>כֶּפֶל בְּ-0 – הַתּוֹצָאָה 0.`,
+                solution: [k.why, `הַתְּשׁוּבָה: ${L(k.ans)}`]
             };
         }
         if (lv === 2) {
-            const len = randInt(11, 18), wid = randInt(6, 10), ans = (len + wid) * 2;
+            const r = Math.random();
+            if (r < 0.45) {
+                const m = pick([20, 30, 40, 50]), f = randInt(2, 9), prod = f * m;
+                return {
+                    question: 'שִׂימִי לֵב לְסִימַן הַכֶּפֶל! אֵיזֶה מִסְפָּר חָסֵר?',
+                    math: [prod, '=', BLANK, '×', m],
+                    spoken: `${prod} שָׁוֶה כַּמָּה כָּפוּל ${m}? שִׂימִי לֵב, זֶה כֶּפֶל.`,
+                    type: 'input', answer: f,
+                    hint: `💡 <strong>עִצְרִי וּבִדְקִי סִימָן:</strong><br>הַסִּימָן הוּא <strong>כֶּפֶל (×)</strong>! כַּמָּה פְּעָמִים ${L(m)} נִכְנָס בְּ-${L(prod)}?<br>טְרִיק: ${L(`${prod / 10} : ${m / 10}`)}`,
+                    solution: [L(`${prod / 10} : ${m / 10} = ${f}`), `✅ בְּדִיקָה: ${L(`${f} × ${m} = ${prod}`)}`],
+                    diagnose: v => v === prod - m ? `${signSlip}<br>${L(`${v} × ${m}`)} זֶה הַרְבֵּה יוֹתֵר מִ-${L(prod)}.` : null
+                };
+            }
+            if (r < 0.75) {
+                const a = randInt(6, 14), b = randInt(1, a - 3), c = randInt(2, 9), d = a - b;
+                return {
+                    question: 'אַזְּנִי אֶת הַמֹּאזְנַיִם:',
+                    math: [`(${a} − ${b})`, '×', c, '=', d, '×', BLANK],
+                    spoken: `בְּסוֹגְרַיִם ${a} פָּחוֹת ${b}, כָּפוּל ${c}, שָׁוֶה ${d} כָּפוּל כַּמָּה?`,
+                    type: 'input', answer: c,
+                    hint: `💡 <strong>קֹדֶם הַסּוֹגְרַיִם:</strong> ${L(`${a} − ${b} = ?`)}<br>אַחַר כָּךְ הַשְׁוִי אֶת שְׁנֵי הַצְּדָדִים.`,
+                    solution: [L(`${a} − ${b} = ${d}`), L(`${d} × ${c} = ${d} × ${c}`)],
+                    diagnose: v => v === d * c ? 'חִשַּׁבְתְּ אֶת כָּל הַתּוֹצָאָה – אֲבָל צָרִיךְ רַק אֶת הַמִּסְפָּר שֶׁכּוֹפְלִים בּוֹ אֶת ' + d + '.' : null
+                };
+            }
+            const f = randInt(2, 9), k = randInt(2, 9), s = randInt(1, 9), res = f * k - s;
             return {
-                question: `עָלֵינוּ לְהַקִּיף אֶת בְּסִיס הַמִּפְקָדָה בְּחוֹמַת לֵיזֶר מַלְבְּנִית בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. מַהוּ הַהֶקֵּף?`,
-                svg: rectSvg(len, wid, false),
-                spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. מָה הַהֶקֵּף שֶׁל כָּל אַרְבַּע הַצְּלָעוֹת?`,
+                question: 'אֵיזֶה מִסְפָּר חָסֵר?',
+                math: [BLANK, '×', k, '−', s, '=', res],
+                spoken: `כַּמָּה כָּפוּל ${k} פָּחוֹת ${s} שָׁוֶה ${res}?`,
+                type: 'input', answer: f,
+                hint: `💡 <strong>הוֹלְכִים אֲחוֹרָה:</strong><br>לִפְנֵי שֶׁהוֹרִידוּ ${L(s)}, הָיָה ${L(`${res} + ${s}`)}. עַכְשָׁו: כַּמָּה כָּפוּל ${L(k)} שָׁוֶה לָזֶה?`,
+                solution: [L(`${res} + ${s} = ${res + s}`), L(`${res + s} : ${k} = ${f}`)]
+            };
+        }
+        if (Math.random() < 0.6) {
+            const base = randInt(6, 9) * 100 + randInt(1, 9) * 10, sub1 = randInt(3, 5) * 100 + randInt(1, 9) * 10, diff = pick([100, 200]);
+            const left2 = base - diff, ans = sub1 - diff;
+            return {
+                question: 'אַזְּנִי אֶת מֹאזְנֵי הַלֵּיזֶר בְּלִי לְחַשֵּׁב אֶת כָּל הַתַּרְגִּיל! אֵיזֶה מִסְפָּר חָסֵר?',
+                math: [base, '−', sub1, '=', left2, '−', BLANK],
+                spoken: `${base} פָּחוֹת ${sub1} שָׁוֶה ${left2} פָּחוֹת כַּמָּה?`,
                 type: 'input', answer: ans,
-                hint: `💡 <strong>טִיפּ לְחִשּׁוּב הֶקֵּף:</strong><br>חַבְּרִי קֹדֶם צֵלָע אֲרֻכָּה וְצֵלָע קְצָרָה: ${L(`${len} + ${wid}`)}.<br>וְעַכְשָׁו פָּשׁוּט תַּכְפִּילִי פִּי 2!`,
-                solution: [L(`${len} + ${wid} = ${len + wid}`), L(`${len + wid} × 2 = ${ans}`)]
+                hint: `💡 <strong>סוֹד הַמֹּאזְנַיִם:</strong><br>${L(base)} יָרַד לְ-${L(left2)} – יָרַד בְּ-${diff}.<br>כְּדֵי שֶׁהַהֶפְרֵשׁ יִשָּׁאֵר שָׁוֶה, גַּם ${L(sub1)} צָרִיךְ <strong>לָרֶדֶת</strong> בְּ-${diff}: ${L(`${sub1} − ${diff}`)}`,
+                solution: [L(`${sub1} − ${diff} = ${ans}`), `✅ בְּדִיקָה: ${L(`${base} − ${sub1} = ${base - sub1}`)} וְגַם ${L(`${left2} − ${ans} = ${left2 - ans}`)}`],
+                diagnose: v => v === sub1 + diff
+                    ? `הַהֶסְבֵּר שֶׁלָּךְ בַּכִּוּוּן הַנָּכוֹן! אֲבָל ${L(base)} <strong>יָרַד</strong> בְּ-${diff}, אָז גַּם ${L(sub1)} צָרִיךְ <strong>לָרֶדֶת</strong> בְּ-${diff} – לֹא לַעֲלוֹת.`
+                    : null
+            };
+        }
+        const a = randInt(3, 6) * 100 + randInt(1, 9) * 10, b = randInt(3, 5) * 100 + randInt(1, 9) * 10, diff = pick([100, 200]);
+        return {
+            question: 'אַזְּנִי אֶת הַמֹּאזְנַיִם בְּלִי לְחַשֵּׁב אֶת הַכֹּל:',
+            math: [a, '+', b, '=', a + diff, '+', BLANK],
+            spoken: `${a} וְעוֹד ${b} שָׁוֶה ${a + diff} וְעוֹד כַּמָּה?`,
+            type: 'input', answer: b - diff,
+            hint: `💡 <strong>סוֹד הַמֹּאזְנַיִם בְּחִבּוּר:</strong><br>${L(a)} גָּדַל לְ-${L(a + diff)} – עָלָה בְּ-${diff}.<br>כְּדֵי שֶׁהַסְּכוּם יִשָּׁאֵר שָׁוֶה, ${L(b)} צָרִיךְ לָרֶדֶת בְּ-${diff}.`,
+            solution: [L(`${b} − ${diff} = ${b - diff}`), `✅ בְּדִיקָה: ${L(`${a} + ${b} = ${a + b}`)} וְגַם ${L(`${a + diff} + ${b - diff} = ${a + b}`)}`],
+            diagnose: v => v === b + diff ? `בְּחִבּוּר: אִם צַד אֶחָד עָלָה, הַשֵּׁנִי צָרִיךְ לָרֶדֶת כְּדֵי שֶׁהַסְּכוּם יִשָּׁאֵר שָׁוֶה.` : null
+        };
+    },
+
+    // ---------- סדר פעולות (מבחן: שאלה 7ה-ו – חוזקה!) ----------
+    orderOps(lv) {
+        if (lv === 1) {
+            if (Math.random() < 0.5) {
+                const c = randInt(2, 9), k = randInt(2, 9), b = c * k, a = randInt(k + 5, k + 45);
+                return {
+                    question: 'אַתְּ אַלּוּפָה בְּסֵדֶר פְּעֻלּוֹת! פִּתְרִי אֶת הַקּוֹד:',
+                    math: [a, '−', b, ':', c, '=', BLANK],
+                    spoken: `${a} פָּחוֹת ${b} לְחַלֵּק לְ-${c}. כַּמָּה זֶה?`,
+                    type: 'input', answer: a - k,
+                    hint: `💡 <strong>חִלּוּק לִפְנֵי חִסּוּר!</strong><br>קֹדֶם ${L(`${b} : ${c}`)}, וְרַק אַחַר כָּךְ מְחַסְּרִים.`,
+                    solution: [`1. ${L(`${b} : ${c} = ${k}`)}`, `2. ${L(`${a} − ${k} = ${a - k}`)}`],
+                    diagnose: v => ((a - b) > 0 && (a - b) % c === 0 && v === (a - b) / c) ? 'חִלּוּק וְכֶפֶל בָּאִים <strong>לִפְנֵי</strong> חִבּוּר וְחִסּוּר.' : null
+                };
+            }
+            const a = randInt(5, 30), b = randInt(2, 9), c = randInt(2, 9);
+            return {
+                question: 'אַתְּ אַלּוּפָה בְּסֵדֶר פְּעֻלּוֹת! פִּתְרִי אֶת הַקּוֹד:',
+                math: [a, '+', b, '×', c, '=', BLANK],
+                spoken: `${a} וְעוֹד ${b} כָּפוּל ${c}. כַּמָּה זֶה?`,
+                type: 'input', answer: a + b * c,
+                hint: `💡 <strong>כֶּפֶל לִפְנֵי חִבּוּר!</strong>`,
+                solution: [`1. ${L(`${b} × ${c} = ${b * c}`)}`, `2. ${L(`${a} + ${b * c} = ${a + b * c}`)}`],
+                diagnose: v => v === (a + b) * c ? 'כֶּפֶל בָּא <strong>לִפְנֵי</strong> חִבּוּר.' : null
+            };
+        }
+        if (lv === 2) {
+            const a = randInt(10, 25), b = randInt(2, 4), c = randInt(12, 20), d = randInt(4, 9), ans = a + b * (c - d);
+            return {
+                question: 'פִּתְרִי לְפִי סֵדֶר פְּעֻלּוֹת חֶשְׁבּוֹן:',
+                math: [a, '+', b, '×', `(${c} − ${d})`, '=', BLANK],
+                spoken: `${a} וְעוֹד ${b} כָּפוּל, בְּסוֹגְרַיִם, ${c} פָּחוֹת ${d}.`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>שְׁלַבֵּי הַפְּעֻלָּה:</strong><br>1. סוֹגְרַיִם. 2. כֶּפֶל. 3. חִבּוּר.`,
+                solution: [`1. ${L(`${c} − ${d} = ${c - d}`)}`, `2. ${L(`${b} × ${c - d} = ${b * (c - d)}`)}`, `3. ${L(`${a} + ${b * (c - d)} = ${ans}`)}`]
             };
         }
         if (Math.random() < 0.5) {
+            const a = randInt(2, 9), b = randInt(2, 9), c = randInt(2, 6), d = randInt(1, (a + b) * c - 1);
+            const ans = (a + b) * c - d;
+            return {
+                question: 'קוֹד שְׁלוֹשָׁה שְׁלַבִּים:',
+                math: [`(${a} + ${b})`, '×', c, '−', d, '=', BLANK],
+                spoken: `בְּסוֹגְרַיִם ${a} וְעוֹד ${b}, כָּפוּל ${c}, פָּחוֹת ${d}.`,
+                type: 'input', answer: ans,
+                hint: `💡 סוֹגְרַיִם ← כֶּפֶל ← חִסּוּר.`,
+                solution: [`1. ${L(`${a} + ${b} = ${a + b}`)}`, `2. ${L(`${a + b} × ${c} = ${(a + b) * c}`)}`, `3. ${L(`${(a + b) * c} − ${d} = ${ans}`)}`]
+            };
+        }
+        const a = randInt(3, 9), b = randInt(4, 9), d = randInt(2, 6), k = randInt(1, Math.min(9, a * b - 1)), c = d * k;
+        return {
+            question: 'קוֹד שְׁלוֹשָׁה שְׁלַבִּים:',
+            math: [a, '×', b, '−', c, ':', d, '=', BLANK],
+            spoken: `${a} כָּפוּל ${b}, פָּחוֹת ${c} לְחַלֵּק לְ-${d}.`,
+            type: 'input', answer: a * b - k,
+            hint: `💡 כֶּפֶל וְחִלּוּק קֹדֶם (מִשְּׂמֹאל לְיָמִין בַּתַּרְגִּיל), וּבַסּוֹף חִסּוּר.`,
+            solution: [`1. ${L(`${a} × ${b} = ${a * b}`)}`, `2. ${L(`${c} : ${d} = ${k}`)}`, `3. ${L(`${a * b} − ${k} = ${a * b - k}`)}`]
+        };
+    },
+
+    // ---------- בעיות מילוליות (מבחן: שאלות 9, 10, 11) ----------
+    wordProblems(lv) {
+        if (lv === 1) {
+            const t = randInt(6, 9) * 100 + randInt(1, 9) * 10, h = randInt(2, 5) * 100 + randInt(1, 9) * 10, ans = t - h;
+            return {
+                question: `לִקְרַאת מְסִבַּת הַנִּצָּחוֹן אָסְפוּ הַסּוֹכְנִים ${h} שְׁקָלִים. הַצִּיּוּד לַמְּסִבָּה עוֹלֶה ${t} שְׁקָלִים. כַּמָּה שְׁקָלִים חֲסֵרִים לָהֶם?`,
+                spoken: `אָסְפוּ ${h} שְׁקָלִים, וְהַצִּיּוּד עוֹלֶה ${t}. כַּמָּה חֲסֵרִים?`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>"כַּמָּה חָסֵר" = חִסּוּר:</strong><br>מִמָּה שֶׁצָּרִיךְ (${L(t)}) מוֹרִידִים אֶת מָה שֶׁיֵּשׁ (${L(h)}).<br>אֶפְשָׁר גַּם לְהַשְׁלִים: מִ-${L(h)} עַד ${L(t)}.`,
+                solution: [L(`${t} − ${h} = ${ans}`), `✅ בְּדִיקָה: ${L(`${h} + ${ans} = ${t}`)}`],
+                diagnose: v => v === t + h ? 'חִבַּרְתְּ – אֲבָל הַשְּׁאֵלָה הִיא כַּמָּה <strong>חָסֵר</strong>. זֶה חִסּוּר.' : `בְּדִיקָה: ${L(`${h} + ${v} = ${h + v}`)}, וְלֹא ${L(t)}.`
+            };
+        }
+        if (lv === 2) {
+            if (Math.random() < 0.5) {
+                const rows1 = randInt(3, 6), rows2 = randInt(4, 7), per = randInt(6, 9);
+                const correct = `${per} × ${rows1} + ${per} × ${rows2}`;
+                return {
+                    question: `בְּגִנַּת הַמִּפְקָדָה יֵשׁ ${rows1} טוּרִים שֶׁל פְּרָחִים אֲדֻמִּים וְ-${rows2} טוּרִים שֶׁל פְּרָחִים צְהֻבִּים. בְּכָל טוּר ${per} פְּרָחִים. אֵיזֶה תַּרְגִּיל מְחַשֵּׁב אֶת כָּל הַפְּרָחִים?`,
+                    spoken: `${rows1} טוּרִים אֲדֻמִּים וְ-${rows2} טוּרִים צְהֻבִּים, בְּכָל טוּר ${per} פְּרָחִים. אֵיזֶה תַּרְגִּיל מַתְאִים?`,
+                    type: 'options', optionsLtr: true,
+                    options: [correct, `(${per} + ${rows1}) × (${per} + ${rows2})`, `${rows1} × ${rows2} × ${per}`, `${rows1} + ${rows2} + ${per}`],
+                    answer: correct,
+                    hint: `💡 <strong>חֹק הַפִּלּוּג בִּפְעֻלָּה:</strong><br>כַּמָּה פְּרָחִים אֲדֻמִּים? ${L(`${per} × ${rows1}`)}. כַּמָּה צְהֻבִּים? ${L(`${per} × ${rows2}`)}. וְעַכְשָׁו – חַבְּרִי.`,
+                    solution: [`אֲדֻמִּים: ${L(`${per} × ${rows1} = ${per * rows1}`)}`, `צְהֻבִּים: ${L(`${per} × ${rows2} = ${per * rows2}`)}`, `הַתַּרְגִּיל: ${L(correct)}`],
+                    diagnose: v => v.startsWith('(') ? `בַּתַּרְגִּיל הַזֶּה מְחַבְּרִים פְּרָחִים עִם טוּרִים – זֶה לֹא הֶגְיוֹנִי. כּוֹפְלִים טוּרִים × פְּרָחִים בְּכָל טוּר.` : null
+                };
+            }
+            const pages = randInt(3, 9), per = pick([12, 15, 20, 25]);
+            return {
+                question: `רוֹבּוֹט הַשְּׁמִירָה מִלֵּא ${pages} עַמּוּדִים בָּאַלְבּוֹם, וּבְכָל עַמּוּד ${per} מַדְבֵּקוֹת. כַּמָּה מַדְבֵּקוֹת הִדְבִּיק?`,
+                spoken: `${pages} עַמּוּדִים, בְּכָל עַמּוּד ${per} מַדְבֵּקוֹת. כַּמָּה מַדְבֵּקוֹת?`,
+                type: 'input', answer: pages * per,
+                hint: `💡 <strong>הַתַּרְגִּיל:</strong> ${L(`${pages} × ${per}`)}<br>פַּרְקִי: ${L(`${pages} × ${Math.floor(per / 10) * 10}`)} וְעוֹד ${L(`${pages} × ${per % 10}`)}.`,
+                solution: [`תַּרְגִּיל: ${L(`${pages} × ${per}`)}`, L(`${pages} × ${Math.floor(per / 10) * 10} = ${pages * Math.floor(per / 10) * 10}`), L(`${pages} × ${per % 10} = ${pages * (per % 10)}`), L(`${pages * Math.floor(per / 10) * 10} + ${pages * (per % 10)} = ${pages * per}`)],
+                diagnose: v => v === pages + per ? signSlip : null
+            };
+        }
+        if (Math.random() < 0.6) {
+            const a = randInt(6, 9), b = randInt(2, 5), per = pick([12, 15, 20]);
+            return {
+                question: `הַסּוֹכֶנֶת מִלְּאָה ${a} עַמּוּדִים בָּאַלְבּוֹם, וְהָרוֹבּוֹט מִלֵּא ${b} עַמּוּדִים. בְּכָל עַמּוּד יֵשׁ ${per} מַדְבֵּקוֹת. בְּכַמָּה גָּדוֹל מִסְפַּר הַמַּדְבֵּקוֹת שֶׁל הַסּוֹכֶנֶת?`,
+                spoken: `הַסּוֹכֶנֶת ${a} עַמּוּדִים, הָרוֹבּוֹט ${b} עַמּוּדִים, ${per} מַדְבֵּקוֹת בְּכָל עַמּוּד. בְּכַמָּה יוֹתֵר יֵשׁ לַסּוֹכֶנֶת?`,
+                type: 'input', answer: (a - b) * per,
+                hint: `💡 <strong>שְׁתֵּי דְּרָכִים:</strong><br>1. חַשְּׁבִי כַּמָּה לְכָל אֶחָד (${L(`${a} × ${per}`)}, ${L(`${b} × ${per}`)}) וְחַסְּרִי.<br>2. אוֹ: כַּמָּה עַמּוּדִים יוֹתֵר? ${L(`${a} − ${b}`)}, וְכָפוּל ${L(per)}.`,
+                solution: [`עַמּוּדִים יוֹתֵר: ${L(`${a} − ${b} = ${a - b}`)}`, L(`${a - b} × ${per} = ${(a - b) * per}`), `✅ בְּדִיקָה: ${L(`${a * per} − ${b * per} = ${(a - b) * per}`)}`],
+                diagnose: v => v === a * per ? `זֶה מִסְפַּר הַמַּדְבֵּקוֹת שֶׁל הַסּוֹכֶנֶת. עַכְשָׁו – בְּכַמָּה זֶה <strong>יוֹתֵר</strong> מֵהָרוֹבּוֹט?` : (v === a - b ? `זֶה מִסְפַּר הָעַמּוּדִים הַנּוֹסָפִים. כַּמָּה מַדְבֵּקוֹת יֵשׁ בָּהֶם?` : null)
+            };
+        }
+        const n = randInt(2, 5), p = randInt(8, 19), total = n * p;
+        return {
+            question: `בַּחֲנוּת הַחֲלָלִית קָנְתָה הַסּוֹכֶנֶת ${n} מַשְׁקְפֵי לֵיזֶר, כָּל אֶחָד בְּ-${p} שְׁקָלִים. הִיא שִׁלְּמָה בְּשְׁטַר שֶׁל 100 שְׁקָלִים. כַּמָּה עֹדֶף קִבְּלָה?`,
+            spoken: `${n} מַשְׁקָפַיִם, כָּל אֶחָד בְּ-${p} שְׁקָלִים. שִׁלְּמָה 100. כַּמָּה עֹדֶף?`,
+            type: 'input', answer: 100 - total,
+            hint: `💡 <strong>שְׁנֵי שְׁלַבִּים:</strong><br>1. כַּמָּה עָלוּ כָּל הַמַּשְׁקָפַיִם? (${L(`${n} × ${p}`)})<br>2. כַּמָּה חָסֵר מִזֶּה עַד 100?`,
+            solution: [`1. ${L(`${n} × ${p} = ${total}`)}`, `2. ${L(`100 − ${total} = ${100 - total}`)}`],
+            diagnose: v => v === total ? 'זֶה הַמְּחִיר שֶׁל כָּל הַמַּשְׁקָפַיִם. עַכְשָׁו – כַּמָּה נִשְׁאָר מִ-100?' : null
+        };
+    },
+
+    // ---------- סדרות (מבחן: שאלה 5 – חוזקה!) ----------
+    sequences(lv) {
+        let step, start;
+        if (lv === 1) { step = 10; start = randInt(1, 8) * 100 + randInt(4, 6) * 10 + randInt(1, 9); }
+        else if (lv === 2) { step = pick([100, 1000]); start = randInt(3, 6) * 1000 + randInt(3, 8) * 100 + 20; }
+        else {
+            step = pick([25, 50, 250, 1000]);
+            if (step <= 50) start = randInt(2, 9) * 100 + (step === 25 ? randInt(0, 3) * 25 : 0);
+            else if (step === 250) start = randInt(2, 8) * 1000 + 250 * randInt(0, 3);
+            else start = randInt(4, 6) * 1000 + randInt(1, 9) * 100 + randInt(1, 9) * 10;
+        }
+        const up = Math.random() < 0.5 || start - 4 * step <= 0;
+        const terms = [0, 1, 2, 3, 4].map(i => start + (up ? 1 : -1) * step * i);
+        const missing = lv === 1 ? 4 : pick([0, 4, randInt(1, 3)]);
+        const ans = terms[missing];
+        const math = [];
+        terms.forEach((t, i) => { math.push(i === missing ? BLANK : fmt(t)); if (i < 4) math.push(','); });
+        return {
+            question: 'הַשְׁלִימִי אֶת הַמִּסְפָּר הֶחָסֵר בְּסִדְרַת הַקְּפִיצוֹת הַשָּׁווֹת:',
+            math,
+            spoken: `הַשְׁלִימִי אֶת הַסִּדְרָה: ${terms.map((t, i) => i === missing ? 'כַּמָּה' : t).join(', ')}.`,
+            type: 'input', answer: ans,
+            hint: `💡 <strong>זַהִי אֶת הַקְּפִיצָה:</strong><br>הַשְׁוִי בֵּין שְׁנֵי מִסְפָּרִים סְמוּכִים. אֵיזוֹ סִפְרָה מִשְׁתַּנָּה? בְּכַמָּה?`,
+            solution: [`הַקְּפִיצָה הִיא ${up ? '+' : '−'}${L(step)} בְּכָל צַעַד (מִשְּׂמֹאל לְיָמִין).`, L(terms.map(fmt).join(' , '))]
+        };
+    },
+
+    // ---------- גאומטריה (מבחן: שאלות 12-16) ----------
+    geometry(lv) {
+        const r = Math.random();
+        if (lv === 1) {
+            if (r < 0.5) {
+                const kinds = [
+                    { name: 'זָוִית חַדָּה (קְטַנָּה מִ-90°)', deg: randInt(25, 70) },
+                    { name: 'זָוִית יְשָׁרָה (בְּדִיּוּק 90°)', deg: 90 },
+                    { name: 'זָוִית קֵהָה (גְּדוֹלָה מִ-90°)', deg: randInt(115, 160) }
+                ];
+                const chosen = pick(kinds);
+                return {
+                    question: 'מַכַּ"ם הַלֵּיזֶר קָלַט קֶרֶן אֵנֶרְגִּיָה. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
+                    svg: angleSvg(chosen.deg),
+                    spoken: 'הִתְבּוֹנְנִי בַּשִּׂרְטוּט. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
+                    type: 'options', options: kinds.map(k => k.name), answer: chosen.name,
+                    hint: `💡 <strong>בְּדִיקַת פִּנַּת הַדַּף:</strong><br>דַּמְיְנִי פִּנָּה שֶׁל מַחְבֶּרֶת (זָוִית יְשָׁרָה). הַאִם הַפֶּתַח כָּאן קָטָן יוֹתֵר, שָׁוֶה, אוֹ רָחָב יוֹתֵר?`,
+                    solution: [`הַזָּוִית בַּשִּׂרְטוּט הִיא בְּעֵרֶךְ ${L(chosen.deg + '°')}.`, `לָכֵן זוֹ ${chosen.name}.`]
+                };
+            }
+            return triangleQuestion();
+        }
+        if (lv === 2) {
+            if (r < 0.5) {
+                const len = randInt(11, 18), wid = randInt(6, 13), ans = (len + wid) * 2;
+                return {
+                    question: `מִסְגֶּרֶת שֶׁל מָסָךְ בַּמִּפְקָדָה הִיא מַלְבֵּן בְּאֹרֶךְ ${len} ס"מ וּבְרֹחַב ${wid} ס"מ. מַהוּ הֶקֵּף הַמִּסְגֶּרֶת?`,
+                    svg: rectSvg(len, wid, false, 'ס"מ'),
+                    spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} וּבְרֹחַב ${wid}. מָה הַהֶקֵּף שֶׁל כָּל אַרְבַּע הַצְּלָעוֹת?`,
+                    type: 'input', answer: ans,
+                    hint: `💡 <strong>הֶקֵּף = סְכוּם כָּל 4 הַצְּלָעוֹת:</strong><br>חַבְּרִי צֵלָע אֲרֻכָּה וְצֵלָע קְצָרָה: ${L(`${len} + ${wid}`)}, וְתַכְפִּילִי פִּי 2.<br>🔍 בְּדִיקָה: ${L(`${len} + ${len} + ${wid} + ${wid}`)}`,
+                    solution: [L(`${len} + ${wid} = ${len + wid}`), L(`${len + wid} × 2 = ${ans}`), `✅ בְּדִיקָה: ${L(`${len} + ${len} + ${wid} + ${wid} = ${ans}`)}`],
+                    diagnose: v => v === len * wid ? 'זֶה הַשֶּׁטַח – אֲבָל שָׁאֲלוּ עַל הַהֶקֵּף (הַמִּסְגֶּרֶת מִסָּבִיב).'
+                        : v === len + wid ? 'זוֹ רַק חֲצִי מִסְגֶּרֶת – יֵשׁ 4 צְלָעוֹת!'
+                        : Math.abs(v - ans) <= 4 ? 'מַמָּשׁ קָרוֹב! הַדֶּרֶךְ נְכוֹנָה – כְּנִרְאֶה טָעוּת קְטַנָּה בַּחִשּׁוּב. בִּדְקִי שׁוּב אֶת הַחִבּוּר.' : null
+                };
+            }
+            return linesQuestion();
+        }
+        if (r < 0.35) return linesQuestion();
+        if (r < 0.7) {
             const len = randInt(4, 9), wid = randInt(3, 7);
             return {
                 question: `חֲדַר הַבַּקָּרָה הוּא מַלְבֵּן בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. כַּמָּה מֶטְרִים רְבוּעִים שָׁטִיחַ צָרִיךְ? (שֶׁטַח)`,
@@ -1095,7 +1441,8 @@ const generators = {
                 spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} וּבְרֹחַב ${wid}. מָה הַשֶּׁטַח שֶׁלּוֹ?`,
                 type: 'input', answer: len * wid,
                 hint: `💡 <strong>שֶׁטַח = אֹרֶךְ × רֹחַב</strong><br>בַּשִּׂרְטוּט יֵשׁ ${L(wid)} שׁוּרוֹת, וּבְכָל שׁוּרָה ${L(len)} רִבּוּעִים.`,
-                solution: [L(`${len} × ${wid} = ${len * wid}`), `הַשֶּׁטַח הוּא ${L(len * wid)} מֶטְרִים רְבוּעִים.`]
+                solution: [L(`${len} × ${wid} = ${len * wid}`)],
+                diagnose: v => v === 2 * (len + wid) ? 'זֶה הַהֶקֵּף. שֶׁטַח = כַּמָּה רִבּוּעִים יֵשׁ בִּפְנִים.' : null
             };
         }
         const len = randInt(8, 15), wid = randInt(3, 7), P = 2 * (len + wid);
@@ -1109,75 +1456,91 @@ const generators = {
         };
     },
 
-    wordProblems(lv) {
+    // ---------- זמן (מבחן: שאלה 17) ----------
+    time(lv) {
         if (lv === 1) {
-            const target = randInt(6, 9) * 100 + 50, have = randInt(3, 5) * 100 + 20, ans = target - have;
-            const th = Math.floor(target / 100) * 100, hh = Math.floor(have / 100) * 100;
+            const k = pick([['שָׁעָה', 60], ['חֲצִי שָׁעָה', 30], ['רֶבַע שָׁעָה', 15], ['שְׁעָתַיִם', 120], ['שָׁעָה וָחֵצִי', 90], ['שָׁלוֹשׁ שָׁעוֹת', 180], ['שָׁעָה וָרֶבַע', 75], ['שְׁעָתַיִם וָחֵצִי', 150]]);
             return {
-                question: `כְּדֵי לִבְנוֹת מָגֵן אֵנֶרְגִּיָה דְּרוּשִׁים ${target} מַטְבְּעוֹת זָהָב. אָסַפְנוּ כְּבָר ${have}. כַּמָּה מַטְבְּעוֹת עוֹד חֲסֵרִים?`,
-                spoken: `דְּרוּשִׁים ${target} מַטְבְּעוֹת, וְיֵשׁ לָנוּ ${have}. כַּמָּה חֲסֵרִים?`,
-                type: 'input', answer: ans,
-                hint: `💡 <strong>חִשּׁוּב קַל בָּרֹאשׁ:</strong><br>הַשְׁלִימִי קֹדֶם אֶת הָעֲשָׂרוֹת: מִ-20 לְ-50 חֲסֵרִים <strong>30</strong>.<br>עַכְשָׁו אֶת הַמֵּאוֹת: מִ-${L(hh)} לְ-${L(th)}.`,
-                solution: [`עֲשָׂרוֹת: מִ-20 לְ-50 = ${L(30)}`, `מֵאוֹת: ${L(`${th} − ${hh} = ${th - hh}`)}`, L(`${th - hh} + 30 = ${ans}`)]
+                question: `מַסַּע הַחֲלָלִית נִמְשַׁךְ ${k[0]}. כַּמָּה דַּקּוֹת זֶה?`,
+                spoken: `כַּמָּה דַּקּוֹת יֵשׁ בְּ${k[0]}?`,
+                type: 'input', answer: k[1],
+                hint: `💡 <strong>שָׁעוֹן הַסּוֹכְנוֹת:</strong><br>שָׁעָה = 60 דַּקּוֹת · חֲצִי שָׁעָה = 30 · רֶבַע שָׁעָה = 15`,
+                solution: [`${k[0]} = ${L(k[1])} דַּקּוֹת`],
+                diagnose: v => v === Math.round(k[1] / 60 * 100) ? 'בְּשָׁעָה יֵשׁ 60 דַּקּוֹת, לֹא 100.' : null
             };
         }
         if (lv === 2) {
-            const rows1 = randInt(3, 6), rows2 = randInt(4, 7), perRow = randInt(6, 9);
-            const correct = `${perRow} × ${rows1} + ${perRow} × ${rows2}`;
+            const h = randInt(1, 3), m = randInt(1, 11) * 5, total = h * 60 + m;
             return {
-                question: `בְּמַחְסַן הַחֲלָלִית יֵשׁ ${rows1} אַרְגָּזִים כְּחֻלִּים וְ-${rows2} אַרְגָּזִים סְגֻלִּים. בְּכָל אַרְגָּז יֵשׁ ${perRow} סוֹלְלוֹת. אֵיזֶה תַּרְגִּיל מְחַשֵּׁב אֶת כָּל הַסּוֹלְלוֹת יַחַד?`,
-                spoken: `יֵשׁ ${rows1} אַרְגָּזִים כְּחֻלִּים וְ-${rows2} אַרְגָּזִים סְגֻלִּים, וּבְכָל אַרְגָּז ${perRow} סוֹלְלוֹת. אֵיזֶה תַּרְגִּיל מַתְאִים?`,
-                type: 'options', optionsLtr: true,
-                options: [correct, `(${perRow} + ${rows1}) × (${perRow} + ${rows2})`, `${rows1} × ${rows2} × ${perRow}`, `${rows1} + ${rows2} + ${perRow}`],
-                answer: correct,
-                hint: `💡 <strong>חֹק הַפִּלּוּג בִּפְעֻלָּה:</strong><br>כַּמָּה סוֹלְלוֹת בָּאַרְגָּזִים הַכְּחֻלִּים? (${L(`${perRow} × ${rows1}`)}). וְכַמָּה בַּסְּגֻלִּים? חַבְּרִי אֶת שְׁנֵיהֶם.`,
-                solution: [`כְּחֻלִּים: ${L(`${perRow} × ${rows1} = ${perRow * rows1}`)}`, `סְגֻלִּים: ${L(`${perRow} × ${rows2} = ${perRow * rows2}`)}`, `הַתַּרְגִּיל הַנָּכוֹן: ${L(correct)}`]
+                question: `הַטְּעִינָה שֶׁל הַמָּגֵן נִמְשְׁכָה ${total} דַּקּוֹת. זֶה ${h === 1 ? 'שָׁעָה' : h === 2 ? 'שְׁעָתַיִם' : 'שָׁלוֹשׁ שָׁעוֹת'} וְעוֹד כַּמָּה דַּקּוֹת?`,
+                spoken: `${total} דַּקּוֹת הֵן ${h} שָׁעוֹת וְעוֹד כַּמָּה דַּקּוֹת?`,
+                type: 'input', answer: m,
+                hint: `💡 כָּל שָׁעָה = 60 דַּקּוֹת. ${h} שָׁעוֹת = ${L(`${h} × 60 = ${h * 60}`)} דַּקּוֹת. כַּמָּה נִשְׁאָר?`,
+                solution: [L(`${h} × 60 = ${h * 60}`), L(`${total} − ${h * 60} = ${m}`)]
             };
         }
-        if (Math.random() < 0.5) {
-            const k = randInt(3, 6), per = randInt(6, 9), give = randInt(5, 15), ans = k * per - give;
-            return {
-                question: `לַסּוֹכֶנֶת יֵשׁ ${k} תֵּבוֹת, וּבְכָל תֵּבָה ${per} כּוֹכְבֵי אֵנֶרְגִּיָה. הִיא נָתְנָה ${give} כּוֹכָבִים לְרוֹבּוֹט הַשְּׁמִירָה. כַּמָּה כּוֹכָבִים נִשְׁאֲרוּ לָהּ?`,
-                spoken: `${k} תֵּבוֹת, בְּכָל תֵּבָה ${per} כּוֹכָבִים. הִיא נָתְנָה ${give}. כַּמָּה נִשְׁאֲרוּ?`,
-                type: 'input', answer: ans,
-                hint: `💡 <strong>בְּעָיָה דּוּ-שְׁלַבִּית:</strong><br>1. כַּמָּה כּוֹכָבִים הָיוּ בַּהַתְחָלָה? (${L(`${k} × ${per}`)})<br>2. כַּמָּה נִשְׁאֲרוּ אַחֲרֵי שֶׁנָּתְנָה ${L(give)}?`,
-                solution: [`1. ${L(`${k} × ${per} = ${k * per}`)}`, `2. ${L(`${k * per} − ${give} = ${ans}`)}`]
-            };
-        }
-        const n = randInt(2, 5), p = randInt(8, 19), total = n * p;
+        const ranges = [
+            [30, 60, 'בֵּין חֲצִי שָׁעָה לְשָׁעָה'],
+            [60, 90, 'בֵּין שָׁעָה לְשָׁעָה וָחֵצִי'],
+            [90, 120, 'בֵּין שָׁעָה וָחֵצִי לִשְׁעָתַיִם'],
+            [120, 150, 'בֵּין שְׁעָתַיִם לִשְׁעָתַיִם וָחֵצִי']
+        ];
+        const [lo, hi, txt] = pick(ranges);
+        const right = randInt(lo / 5 + 1, hi / 5 - 1) * 5;
+        const opts = new Set([right]);
+        [lo - 20, hi + 40, hi + 90, lo - 10, hi + 20].forEach(x => { if (x > 0 && opts.size < 4) opts.add(x); });
         return {
-            question: `בַּחֲנוּת הַחֲלָלִית קָנְתָה הַסּוֹכֶנֶת ${n} מַשְׁקְפֵי לֵיזֶר, כָּל אֶחָד בְּ-${p} שְׁקָלִים. הִיא שִׁלְּמָה בְּשְׁטַר שֶׁל 100 שְׁקָלִים. כַּמָּה עֹדֶף קִבְּלָה?`,
-            spoken: `${n} מַשְׁקָפַיִם, כָּל אֶחָד בְּ-${p} שְׁקָלִים. שִׁלְּמָה 100. כַּמָּה עֹדֶף?`,
-            type: 'input', answer: 100 - total,
-            hint: `💡 <strong>שְׁנֵי שְׁלַבִּים:</strong><br>1. כַּמָּה עָלוּ כָּל הַמַּשְׁקָפַיִם? (${L(`${n} × ${p}`)})<br>2. כַּמָּה חָסֵר מִזֶּה עַד 100?`,
-            solution: [`1. ${L(`${n} × ${p} = ${total}`)}`, `2. ${L(`100 − ${total} = ${100 - total}`)}`]
+            question: `הַסּוֹכֶנֶת יוֹצֵאת לְסִיּוּר שֶׁנִּמְשָׁךְ ${txt}. אֵיזֶה מֵהַזְּמַנִּים יָכוֹל לִהְיוֹת מֶשֶׁךְ הַסִּיּוּר?`,
+            spoken: `הַסִּיּוּר נִמְשָׁךְ ${txt}. אֵיזֶה זְמַן מַתְאִים?`,
+            type: 'options', options: [...opts].map(x => `${x} דַּקּוֹת`), answer: `${right} דַּקּוֹת`,
+            hint: `💡 <strong>הוֹפְכִים הַכֹּל לְדַקּוֹת:</strong><br>${txt} = בֵּין ${L(lo)} לְ-${L(hi)} דַּקּוֹת.<br>חַפְּשִׂי מִסְפָּר שֶׁנִּמְצָא בֵּינֵיהֶם.`,
+            solution: [`${txt} = בֵּין ${L(lo)} לְ-${L(hi)} דַּקּוֹת`, `${L(right)} נִמְצָא בֵּינֵיהֶם ✅`]
         };
     },
 
-    sequences(lv) {
-        let step, start;
-        if (lv === 1) { step = 10; start = randInt(1, 8) * 100 + randInt(4, 6) * 10 + randInt(1, 9); }
-        else if (lv === 2) { step = 100; start = randInt(3, 6) * 1000 + randInt(3, 8) * 100 + 20; }
-        else {
-            step = pick([25, 50, 250, 1000]);
-            if (step <= 50) start = randInt(2, 9) * 100 + (step === 25 ? randInt(0, 3) * 25 : 0);
-            else if (step === 250) start = randInt(2, 8) * 1000 + 250 * randInt(0, 3);
-            else start = randInt(4, 6) * 1000 + randInt(1, 9) * 100 + randInt(1, 9) * 10;
+    // ---------- דיאגרמות (מבחן: שאלה 18) ----------
+    data(lv) {
+        const counts = Array.from({ length: 9 }, () => (Math.random() < 0.2 ? 0 : randInt(1, 6)));
+        counts[0] = Math.max(counts[0], lv === 2 ? 1 : 0);
+        if (counts.every(c => c === 0)) counts[2] = 3;
+        const total = counts.reduce((a, b) => a + b, 0);
+        const weighted = counts.reduce((a, c, i) => a + c * i, 0);
+        const intro = 'בְּסֶקֶר בַּמִּפְקָדָה שָׁאֲלוּ אֶת הָרוֹבּוֹטִים כַּמָּה מְשִׂימוֹת כָּל אֶחָד בִּצֵּעַ הַשָּׁבוּעַ. כָּל עִגּוּל = רוֹבּוֹט אֶחָד.';
+        const base = { svg: dotPlotSvg(counts), type: 'input' };
+        if (lv === 1) {
+            const opts = counts.map((c, i) => [c, i]).filter(([c]) => c > 0);
+            const [c, k] = pick(opts);
+            return {
+                ...base, question: `${intro} כַּמָּה רוֹבּוֹטִים בִּצְּעוּ ${k} מְשִׂימוֹת?`,
+                spoken: `כַּמָּה רוֹבּוֹטִים בִּצְּעוּ ${k} מְשִׂימוֹת?`, answer: c,
+                hint: `💡 מְחַפְּשִׂים אֶת הַמִּסְפָּר ${L(k)} לְמַטָּה, וְסוֹפְרִים כַּמָּה עִגּוּלִים יֵשׁ מֵעָלָיו.`,
+                solution: [`מֵעַל ${L(k)} יֵשׁ ${L(c)} עִגּוּלִים.`]
+            };
         }
-        const up = Math.random() < 0.5 || start - 3 * step <= 0;
-        const terms = [0, 1, 2, 3].map(i => start + (up ? 1 : -1) * step * i);
-        const missing = lv === 3 ? randInt(1, 3) : 3;
-        const ans = terms[missing];
-        const shown = terms.map((t, i) => i === missing ? BLANK : fmt(t));
-        const math = [];
-        shown.forEach((s, i) => { math.push(s); if (i < 3) math.push(','); });
+        if (lv === 2) {
+            if (Math.random() < 0.5) {
+                return {
+                    ...base, question: `${intro} כַּמָּה רוֹבּוֹטִים לֹא בִּצְּעוּ אַף מְשִׂימָה?`,
+                    spoken: 'כַּמָּה רוֹבּוֹטִים לֹא בִּצְּעוּ אַף מְשִׂימָה?', answer: counts[0],
+                    hint: `💡 "אַף מְשִׂימָה" = 0 מְשִׂימוֹת. סִפְרִי אֶת הָעִגּוּלִים מֵעַל ${L(0)}.`,
+                    solution: [`מֵעַל ${L(0)} יֵשׁ ${L(counts[0])} עִגּוּלִים.`]
+                };
+            }
+            const k = randInt(4, 6), more = counts.slice(k + 1).reduce((a, b) => a + b, 0);
+            return {
+                ...base, question: `${intro} כַּמָּה רוֹבּוֹטִים בִּצְּעוּ יוֹתֵר מִ-${k} מְשִׂימוֹת?`,
+                spoken: `כַּמָּה רוֹבּוֹטִים בִּצְּעוּ יוֹתֵר מִ-${k} מְשִׂימוֹת?`, answer: more,
+                hint: `💡 "יוֹתֵר מִ-${L(k)}" = ${L(k + 1)} וּמַעְלָה (לֹא כּוֹלֵל ${L(k)}!). חַבְּרִי אֶת הָעִגּוּלִים בָּעַמּוּדוֹת הָאֵלֶּה.`,
+                solution: [counts.slice(k + 1).map((c, i) => `${k + 1 + i}: ${c}`).join(' · '), L(`${counts.slice(k + 1).join(' + ')} = ${more}`)],
+                diagnose: v => v === more + counts[k] ? `כִּמְעַט! סָפַרְתְּ גַּם אֶת ${L(k)} – אֲבָל "יוֹתֵר מִ-${k}" לֹא כּוֹלֵל אוֹתוֹ.` : null
+            };
+        }
         return {
-            question: 'הַשְׁלִימִי אֶת הַמִּסְפָּר הֶחָסֵר בְּסִדְרַת הַקְּפִיצוֹת הַשָּׁווֹת:',
-            math,
-            spoken: `הַשְׁלִימִי אֶת הַסִּדְרָה: ${terms.map((t, i) => i === missing ? 'כַּמָּה' : t).join(', ')}.`,
-            type: 'input', answer: ans,
-            hint: `💡 <strong>זַהִי אֶת הַקְּפִיצָה:</strong><br>הִשְׁווִי בֵּין שְׁנֵי מִסְפָּרִים סְמוּכִים. בְּכָל צַעַד הַמִּסְפָּר ${up ? 'גָּדֵל' : 'קָטֵן'} בְּאוֹתָהּ כַּמּוּת.`,
-            solution: [`הַקְּפִיצָה הִיא ${up ? '+' : '−'}${L(step)} בְּכָל צַעַד.`, `${L(terms.map(fmt).join(' , '))}`]
+            ...base, question: `${intro} כַּמָּה רוֹבּוֹטִים הִשְׁתַּתְּפוּ בַּסֶּקֶר בְּסַךְ הַכֹּל?`,
+            spoken: 'כַּמָּה רוֹבּוֹטִים הִשְׁתַּתְּפוּ בַּסֶּקֶר בְּסַךְ הַכֹּל?', answer: total,
+            hint: `💡 כָּל עִגּוּל הוּא רוֹבּוֹט אֶחָד. סִפְרִי אֶת כָּל הָעִגּוּלִים – עַמּוּדָה אַחַר עַמּוּדָה – וְחַבְּרִי.`,
+            solution: [L(`${counts.filter(c => c > 0).join(' + ')} = ${total}`)],
+            diagnose: v => v === weighted ? 'חִבַּרְתְּ אֶת מִסְפַּר הַמְּשִׂימוֹת. אֲבָל הַשְּׁאֵלָה הִיא כַּמָּה <strong>רוֹבּוֹטִים</strong> – כָּל עִגּוּל = רוֹבּוֹט אֶחָד.' : null
         };
     },
 
@@ -1226,6 +1589,38 @@ const generators = {
     }
 };
 
+function triangleQuestion() {
+    const s = randInt(5, 12);
+    const kinds = [
+        { name: 'מְשֻׁלָּשׁ שְׁוֵה-צְלָעוֹת', sides: [s, s, s], why: 'כָּל 3 הַצְּלָעוֹת שָׁווֹת.' },
+        { name: 'מְשֻׁלָּשׁ שְׁוֵה-שׁוֹקַיִם', sides: shuffle([s, s, s + randInt(2, 5)]), why: 'יֵשׁ 2 צְלָעוֹת שָׁווֹת.' },
+        { name: 'מְשֻׁלָּשׁ שׁוֹנֵה-צְלָעוֹת', sides: [s, s + 2, s + randInt(3, 6)], why: 'כָּל הַצְּלָעוֹת שׁוֹנוֹת זוֹ מִזּוֹ.' }
+    ];
+    const k = pick(kinds);
+    const [a, b, c] = k.sides;
+    return {
+        question: `מְשֻׁלָּשׁ שֶׁאָרְכֵי צַלְעוֹתָיו הֵם ${a} ס"מ, ${b} ס"מ וְ-${c} ס"מ, נִקְרָא:`,
+        spoken: `מְשֻׁלָּשׁ שֶׁאָרְכֵי צַלְעוֹתָיו ${a}, ${b} וְ-${c} סֶנְטִימֶטֶר. אֵיךְ קוֹרְאִים לוֹ?`,
+        type: 'options', options: kinds.map(x => x.name), answer: k.name,
+        hint: `💡 <strong>סוֹפְרִים צְלָעוֹת שָׁווֹת:</strong><br>3 שָׁווֹת → שְׁוֵה-צְלָעוֹת · 2 שָׁווֹת → שְׁוֵה-שׁוֹקַיִם · אַף אַחַת → שׁוֹנֵה-צְלָעוֹת`,
+        solution: [k.why, `לָכֵן: ${k.name}`]
+    };
+}
+function linesQuestion() {
+    const kinds = ['יְשָׁרִים מַקְבִּילִים', 'יְשָׁרִים מְאֻנָּכִים', 'נֶחְתָּכִים, אֲבָל לֹא מְאֻנָּכִים'];
+    const idx = randInt(0, 2);
+    return {
+        question: 'מָה נָכוֹן לְגַבֵּי שְׁנֵי קַרְנֵי הַלֵּיזֶר בַּשִּׂרְטוּט?',
+        svg: linesSvg(idx),
+        spoken: 'הִתְבּוֹנְנִי בִּשְׁנֵי הַקַּוִּים. הֵם מַקְבִּילִים, מְאֻנָּכִים, אוֹ נֶחְתָּכִים וְלֹא מְאֻנָּכִים?',
+        type: 'options', options: kinds, answer: kinds[idx],
+        hint: `💡 <strong>שְׁתֵּי שְׁאֵלוֹת:</strong><br>1. הַאִם הַקַּוִּים נִפְגָּשִׁים (אוֹ הָיוּ נִפְגָּשִׁים אִם הָיִינוּ מַאֲרִיכִים אוֹתָם)? אִם לֹא – מַקְבִּילִים.<br>2. אִם כֵּן – הַאִם נוֹצֶרֶת פִּנָּה יְשָׁרָה כְּמוֹ פִּנַּת דַּף? גַּם כְּשֶׁהַשִּׂרְטוּט מְסֻבָּב!`,
+        solution: [['הַקַּוִּים לֹא נִפְגָּשִׁים לְעוֹלָם, וְהַמֶּרְחָק בֵּינֵיהֶם שָׁוֶה.', 'הַקַּוִּים נִפְגָּשִׁים וְיוֹצְרִים 4 זָוִיּוֹת יְשָׁרוֹת – גַּם כְּשֶׁהֵם מְסֻבָּבִים (כְּמוֹ X).', 'הַקַּוִּים נִפְגָּשִׁים, אֲבָל הַזָּוִיּוֹת אֵינָן יְשָׁרוֹת.'][idx], `לָכֵן: ${kinds[idx]}`],
+        diagnose: v => (idx === 1 && v === kinds[2]) ? 'הַקַּוִּים מְסֻבָּבִים, אֲבָל בִּדְקִי עִם פִּנַּת דַּף – הַזָּוִית בֵּינֵיהֶם יְשָׁרָה!' : null
+    };
+}
+
+
 // ---------- SVG builders ----------
 function angleSvg(deg) {
     const vx = deg > 90 ? 120 : 55, vy = 115, len = 95, r = 26;
@@ -1242,7 +1637,7 @@ function angleSvg(deg) {
         <circle cx="${vx}" cy="${vy}" r="5" fill="#f59e0b"/>
     </svg>`;
 }
-function rectSvg(len, wid, grid) {
+function rectSvg(len, wid, grid, unit = "מ'") {
     const W = 240, H = 150;
     let cols = typeof len === 'number' ? len : 10, rows = typeof wid === 'number' ? wid : 5;
     const cell = Math.min(160 / cols, 90 / rows);
@@ -1256,8 +1651,8 @@ function rectSvg(len, wid, grid) {
     return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
         <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" stroke-width="3" class="draw" style="stroke-dasharray:800;stroke-dashoffset:800"/>
         ${lines}
-        <text x="${x + w / 2}" y="${y - 8}" fill="#f8fafc" font-size="15" text-anchor="middle">${len} מ'</text>
-        <text x="${x - 8}" y="${y + h / 2 + 5}" fill="#f8fafc" font-size="15" text-anchor="end">${wid} מ'</text>
+        <text x="${x + w / 2}" y="${y - 8}" fill="#f8fafc" font-size="15" text-anchor="middle">${len} ${unit}</text>
+        <text x="${x - 8}" y="${y + h / 2 + 5}" fill="#f8fafc" font-size="15" text-anchor="end">${wid} ${unit}</text>
     </svg>`;
 }
 function fracBarSvg(n, d, width = 260) {
@@ -1275,6 +1670,62 @@ function fracBarSvg(n, d, width = 260) {
     </svg>`;
 }
 
+function numberLineSvg(start, step, labels, target) {
+    const X = i => 22 + i * 31, y = 40;
+    let ticks = '';
+    for (let i = 0; i <= 9; i++) {
+        ticks += `<line x1="${X(i)}" y1="${y - 9}" x2="${X(i)}" y2="${y + 9}" stroke="#e2e8f0" stroke-width="2.5" class="fill-in" style="transform-box:fill-box; transform-origin:50% 50%; animation-delay:${i * 0.06}s"/>`;
+    }
+    const lab = labels.map(i => `<text x="${X(i)}" y="${y + 32}" fill="#f8fafc" font-size="15" font-weight="bold" text-anchor="middle">${start + step * i}</text>`).join('');
+    const box = `<rect x="${X(target) - 22}" y="${y + 15}" width="44" height="26" rx="6" fill="rgba(245,158,11,.15)" stroke="#f59e0b" stroke-width="2"><animate attributeName="stroke-opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></rect>
+        <text x="${X(target)}" y="${y + 33}" fill="#f59e0b" font-size="17" font-weight="bold" text-anchor="middle">?</text>
+        <circle cx="${X(target)}" cy="${y}" r="5" fill="#f59e0b"/>`;
+    return `<svg width="320" height="90" viewBox="0 0 320 90" style="direction:ltr; background:#090d16; border-radius:12px; border:1px solid #38bdf8;">
+        <line x1="10" y1="${y}" x2="306" y2="${y}" stroke="#e2e8f0" stroke-width="2.5" class="draw" style="stroke-dasharray:300;stroke-dashoffset:300"/>
+        <path d="M 302 ${y - 6} L 312 ${y} L 302 ${y + 6}" fill="#e2e8f0"/>
+        ${ticks}${lab}${box}
+    </svg>`;
+}
+function dotPlotSvg(counts) {
+    const n = counts.length, X = i => 34 + i * 32, base = 172;
+    let dots = '', k = 0;
+    counts.forEach((c, i) => {
+        for (let j = 0; j < c; j++) {
+            const cy = base - 14 - j * 19;
+            dots += `<g class="fill-in" style="transform-box:fill-box; transform-origin:50% 100%; animation-delay:${(k++) * 0.03}s">
+                <circle cx="${X(i)}" cy="${cy}" r="8" fill="rgba(56,189,248,.25)" stroke="#38bdf8" stroke-width="1.5"/>
+                <circle cx="${X(i) - 3}" cy="${cy - 2}" r="1.2" fill="#e2e8f0"/><circle cx="${X(i) + 3}" cy="${cy - 2}" r="1.2" fill="#e2e8f0"/>
+                <path d="M ${X(i) - 3.5} ${cy + 2} Q ${X(i)} ${cy + 5} ${X(i) + 3.5} ${cy + 2}" stroke="#e2e8f0" stroke-width="1.2" fill="none"/></g>`;
+        }
+    });
+    let axis = '';
+    for (let i = 0; i < n; i++) axis += `<line x1="${X(i)}" y1="${base - 4}" x2="${X(i)}" y2="${base + 4}" stroke="#e2e8f0"/><text x="${X(i)}" y="${base + 20}" fill="#f8fafc" font-size="13" text-anchor="middle">${i}</text>`;
+    return `<svg width="320" height="215" viewBox="0 0 320 215" style="direction:ltr; background:#090d16; border-radius:12px; border:1px solid #38bdf8;">
+        ${dots}
+        <line x1="16" y1="${base}" x2="${X(n - 1) + 22}" y2="${base}" stroke="#e2e8f0" stroke-width="2"/>
+        ${axis}
+        <text x="160" y="${base + 38}" fill="#94a3b8" font-size="12" text-anchor="middle" direction="rtl">מִסְפַּר הַמְּשִׂימוֹת</text>
+    </svg>`;
+}
+function linesSvg(kind) {
+    const cx = 120, cy = 75, L1 = 90;
+    const rot = randInt(0, 179);
+    const seg = (ang, ox = 0, oy = 0, delay = 0) => {
+        const r = ang * Math.PI / 180, dx = Math.cos(r) * L1, dy = Math.sin(r) * L1;
+        return `<line x1="${(cx + ox - dx).toFixed(1)}" y1="${(cy + oy - dy).toFixed(1)}" x2="${(cx + ox + dx).toFixed(1)}" y2="${(cy + oy + dy).toFixed(1)}" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" class="draw" style="animation-delay:${delay}s"/>`;
+    };
+    let body;
+    if (kind === 0) {
+        const r = (rot + 90) * Math.PI / 180, off = 26;
+        body = seg(rot, Math.cos(r) * off, Math.sin(r) * off) + seg(rot, -Math.cos(r) * off, -Math.sin(r) * off, .3);
+    } else if (kind === 1) body = seg(rot) + seg(rot + 90, 0, 0, .3);
+    else body = seg(rot) + seg(rot + pick([randInt(30, 60), randInt(120, 150)]), 0, 0, .3);
+    return `<svg width="240" height="150" viewBox="0 0 240 150" style="background:#090d16; border-radius:12px; border:1px solid #38bdf8;">
+        <defs><clipPath id="lc"><rect x="4" y="4" width="232" height="142" rx="10"/></clipPath></defs>
+        <g clip-path="url(#lc)">${body}</g>
+    </svg>`;
+}
+
 // =====================================================================
 //  Adaptive topic selection
 // =====================================================================
@@ -1283,7 +1734,7 @@ function pickNextTopic() {
     const weights = keys.map(k => {
         const t = state.topics[k];
         // weaker topics and recently-hard topics come up more, but every topic stays in rotation
-        return 1 + (100 - t.mastery) / 30 + Math.min(3, t.struggle);
+        return topics[k].focus * (1 + (100 - t.mastery) / 30 + Math.min(3, t.struggle));
     });
     const total = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
@@ -1406,6 +1857,7 @@ function typewrite(el, text) {
     }, 28);
 }
 
+const OP_CLASS = { '×': 'op-mul', ':': 'op-div', '+': 'op-add', '−': 'op-sub', '=': 'op-eq' };
 function loadQuestionUI() {
     answered = false; attempts = 0; usedHint = false;
     ['feedback-box', 'hint-box', 'solution-box'].forEach(id => { $(id).style.display = 'none'; $(id).innerHTML = ''; });
@@ -1436,7 +1888,7 @@ function loadQuestionUI() {
     if (currentMission.math) {
         const box = document.createElement('div');
         box.className = 'math-display' + (currentMission.mathRtl ? ' rtl' : '');
-        box.innerHTML = currentMission.math.map((t, i) => `<span class="tok" style="animation-delay:${0.15 + i * 0.08}s">${t}</span>`).join('');
+        box.innerHTML = currentMission.math.map((t, i) => `<span class="tok${OP_CLASS[t] ? ' op ' + OP_CLASS[t] : ''}" style="animation-delay:${0.15 + i * 0.08}s">${t}</span>`).join('');
         visual.appendChild(box);
     } else if (currentMission.svg) {
         visual.innerHTML = currentMission.svg;
@@ -1504,7 +1956,7 @@ function checkAnswer(selected = null, btnEl = null) {
     fb.style.display = 'block';
 
     if (userVal === currentMission.answer) onCorrect(fb, inputEl, btnEl);
-    else onWrong(fb, inputEl, btnEl);
+    else onWrong(fb, inputEl, btnEl, userVal);
 }
 
 async function onCorrect(fb, inputEl, btnEl) {
@@ -1557,7 +2009,7 @@ async function onCorrect(fb, inputEl, btnEl) {
     if (nb) nb.focus({ preventScroll: true });
 }
 
-function onWrong(fb, inputEl, btnEl) {
+function onWrong(fb, inputEl, btnEl, userVal) {
     attempts++;
     consecutiveMistakes++;
     const t = state.topics[currentTopic];
@@ -1567,19 +2019,22 @@ function onWrong(fb, inputEl, btnEl) {
     if (inputEl) { inputEl.classList.remove('wobble'); void inputEl.offsetWidth; inputEl.classList.add('wobble'); inputEl.select(); }
     if (btnEl) { btnEl.classList.add('tried'); btnEl.disabled = true; }
     fb.className = 'feedback gentle';
+    let diag = null;
+    try { diag = currentMission.diagnose ? currentMission.diagnose(userVal) : null; } catch (e) {}
+    const diagHtml = diag ? `<div class="diag">🔎 ${diag}</div>` : '';
 
     if (attempts === 1) {
         const m = pick(gentleMsgs);
-        fb.innerHTML = `${m}<br>אֶפְשָׁר לִפְתֹּחַ אֶת <strong>גַּאדְגֶ'ט הָעֶזְרָה 💡</strong> אוֹ לְנַסּוֹת שׁוּב.`;
-        speak(m);
+        fb.innerHTML = `${diagHtml}${m}<br>אֶפְשָׁר לִפְתֹּחַ אֶת <strong>גַּאדְגֶ'ט הָעֶזְרָה 💡</strong> אוֹ לְנַסּוֹת שׁוּב.`;
+        speak(diag ? diag : m);
     } else if (attempts === 2) {
         showHint(true);
-        fb.innerHTML = 'הִנֵּה רֶמֶז קָטָן שֶׁיַּעֲזֹר לָךְ – הוּא כְּבָר פָּתוּחַ לְמַטָּה. 💡<br>אֵין שׁוּם לַחַץ, קְחִי אֶת הַזְּמַן.';
+        fb.innerHTML = diagHtml + 'הִנֵּה רֶמֶז קָטָן שֶׁיַּעֲזֹר לָךְ – הוּא כְּבָר פָּתוּחַ לְמַטָּה. 💡<br>אֵין שׁוּם לַחַץ, קְחִי אֶת הַזְּמַן.';
         speak('הִנֵּה רֶמֶז קָטָן שֶׁיַּעֲזֹר לָךְ. אֵין שׁוּם לַחַץ.');
         calmQuestions = Math.max(calmQuestions, 1);
     } else {
         showSolution();
-        fb.innerHTML = 'בּוֹאִי נִפְתֹּר אֶת זֶה יַחַד, צַעַד אַחַר צַעַד. 🤝<br>קִרְאִי אֶת הַפִּתְרוֹן וְהַקְלִידִי אֶת הַתְּשׁוּבָה – כָּכָה לוֹמְדִים!';
+        fb.innerHTML = diagHtml + 'בּוֹאִי נִפְתֹּר אֶת זֶה יַחַד, צַעַד אַחַר צַעַד. 🤝<br>קִרְאִי אֶת הַפִּתְרוֹן וְהַקְלִידִי אֶת הַתְּשׁוּבָה – כָּכָה לוֹמְדִים!';
         speak('בּוֹאִי נִפְתֹּר אֶת זֶה יַחַד, צַעַד אַחַר צַעַד.');
         calmQuestions = Math.max(calmQuestions, 2);
     }
