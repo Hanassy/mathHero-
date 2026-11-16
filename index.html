@@ -319,6 +319,115 @@
     .mini-bar { height: 6px; border-radius: 4px; background: #1e293b; overflow: hidden; }
     .mini-fill { height: 100%; background: linear-gradient(90deg, var(--secondary), var(--primary)); transition: width .9s cubic-bezier(.34,1.56,.64,1); }
 
+
+    /* ---------- Topic picker + level switch ---------- */
+    .skills-title { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1); color: #bae6fd; font-size: .95rem; }
+    .skills-title + .skills-bar { margin-top: 10px; padding-top: 0; border-top: none; }
+    .chip-all { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.25); color: #e2e8f0; border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: .85rem; transition: all .25s; }
+    .chip-all.on { background: linear-gradient(135deg, rgba(56,189,248,.3), rgba(168,85,247,.3)); border-color: var(--primary); box-shadow: 0 0 14px rgba(56,189,248,.4); }
+    button.skill-pill { color: inherit; font: inherit; text-align: inherit; cursor: pointer; width: 100%; }
+    button.skill-pill:hover { transform: translateY(-3px); border-color: rgba(56,189,248,.6); }
+    .skill-pill.focused { border-color: var(--warning); background: linear-gradient(135deg, rgba(245,158,11,.18), rgba(9,13,22,.85)); box-shadow: 0 0 18px rgba(245,158,11,.45); }
+    .skill-pill.focused .pin { display: inline; }
+    .pin { display: none; animation: pinDrop .5s cubic-bezier(.3,1.8,.5,1); }
+    @keyframes pinDrop { from { transform: translateY(-12px) scale(.4); opacity: 0; } }
+    .focus-banner { display: none; margin: 0 0 10px; padding: 6px 12px; border-radius: 12px; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.5); color: #fde68a; font-size: .9rem; align-items: center; gap: 8px; justify-content: space-between; }
+    .focus-banner.show { display: flex; animation: slideUp .4s ease; }
+    .focus-banner button { background: none; border: 1px solid rgba(253,230,138,.5); color: #fde68a; border-radius: 10px; padding: 3px 10px; cursor: pointer; }
+
+    .card-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .level-switch { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); width: 268px; max-width: 100%; padding: 3px; border-radius: 16px;
+        background: #090d16; border: 1px solid rgba(56,189,248,.45); box-shadow: inset 0 0 12px rgba(0,0,0,.7); user-select: none; }
+    .ls-thumb { position: absolute; top: 3px; bottom: 3px; width: calc((100% - 6px) / 4); right: 3px; border-radius: 13px;
+        background: linear-gradient(135deg, #38bdf8, #a855f7); box-shadow: 0 0 16px rgba(56,189,248,.7), inset 0 0 8px rgba(255,255,255,.35);
+        transition: right .45s cubic-bezier(.3,1.5,.5,1), background .4s; }
+    .ls-thumb::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.5) 50%, transparent 70%); animation: shimmer 2.6s infinite; }
+    .level-switch[data-lv="0"] .ls-thumb { background: linear-gradient(135deg, #2dd4bf, #38bdf8); }
+    .level-switch[data-lv="3"] .ls-thumb { background: linear-gradient(135deg, #f59e0b, #ef4444); box-shadow: 0 0 18px rgba(245,158,11,.8); }
+    .ls-opt { position: relative; z-index: 1; background: none; border: none; color: #cbd5e1; padding: 6px 2px; font-size: .82rem; cursor: pointer; border-radius: 13px; white-space: nowrap; transition: color .3s, transform .2s; }
+    .ls-opt:hover { transform: scale(1.06); }
+    .ls-opt.on { color: #fff; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+    .ls-opt .st { color: #fcd34d; }
+    .ls-opt.on .st { color: #fff; }
+    .ls-label { font-size: .75rem; color: var(--text-muted); text-align: center; margin-top: 3px; }
+
+    /* ---------- Hint animations ---------- */
+    .btn-hint .bulb { display: inline-block; transform-origin: 50% 0; }
+    .btn-hint:hover .bulb { animation: swing 1s ease-in-out infinite; }
+    @keyframes swing { 0%,100% { transform: rotate(0); } 25% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } }
+    .hint-box { position: relative; overflow: hidden; }
+    .hint-box.anim { animation: hintOpen .55s cubic-bezier(.2,.9,.3,1.2), hintGlow 2.2s 0.55s ease-in-out 2; }
+    @keyframes hintOpen { from { opacity: 0; transform: scaleY(.3) translateY(-20px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+    @keyframes hintGlow { 50% { box-shadow: 0 0 26px rgba(245,158,11,.55); } }
+    .hint-box.anim::before { content: ""; position: absolute; left: 0; right: 0; height: 40px; top: -40px; pointer-events: none;
+        background: linear-gradient(to bottom, transparent, rgba(253,230,138,.35), transparent); animation: hintScan 1.4s .3s ease-in-out; }
+    @keyframes hintScan { from { top: -40px; } to { top: 100%; } }
+    .hint-bulb { float: left; font-size: 1.9rem; margin: -4px 0 0 4px; display: inline-block; transform-origin: 50% 0; animation: swing 1.6s ease-in-out 3, bulbGlow 1.6s ease-in-out infinite; }
+    @keyframes bulbGlow { 50% { filter: drop-shadow(0 0 10px #fcd34d) brightness(1.3); } }
+    .hl { opacity: 0; animation: hlIn .5s ease forwards; }
+    @keyframes hlIn { from { opacity: 0; transform: translateX(18px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+    .hint-box .ltr, .solution-box .ltr { background: linear-gradient(90deg, rgba(250,204,21,.45), rgba(250,204,21,.45)) no-repeat 0 85% / 0% 45%; border-radius: 4px; padding: 0 3px;
+        animation: marker .7s ease forwards; animation-delay: inherit; }
+    .hl .ltr { animation-delay: calc(var(--d, 0s) + .35s); }
+    @keyframes marker { to { background-size: 100% 45%; } }
+    .gadget-fly { position: fixed; z-index: 1400; font-size: 34px; pointer-events: none; filter: drop-shadow(0 0 10px #fcd34d); }
+    .math-display.scan { position: relative; overflow: hidden; }
+    .math-display.scan::after { content: ""; position: absolute; top: 0; bottom: 0; width: 60px; left: -60px;
+        background: linear-gradient(90deg, transparent, rgba(253,230,138,.45), transparent); animation: mathScan 1.1s ease-in-out; }
+    @keyframes mathScan { to { left: 100%; } }
+    .math-display.scan .op, .math-display.scan .blank { animation: opPop .6s .5s cubic-bezier(.3,1.8,.5,1) 2; }
+    @keyframes opPop { 50% { transform: scale(1.45); filter: brightness(1.5); } }
+    .solution-box .step .ltr { animation-delay: inherit; }
+
+    /* ---------- Notebook ---------- */
+    .notebook {
+        --cs: min(34px, calc((100vw - 104px) / 14));
+        width: fit-content; max-width: 100%; max-height: 96vh; overflow-y: auto;
+        background: #1e293b; border-radius: 20px; padding: 14px; border: 2px solid #60a5fa;
+        box-shadow: 0 20px 60px rgba(0,0,0,.7), 0 0 30px rgba(96,165,250,.35);
+        animation: nbOpen .6s cubic-bezier(.2,.9,.3,1.15);
+    }
+    @keyframes nbOpen { from { opacity: 0; transform: perspective(900px) rotateX(35deg) translateY(60px) scale(.85); } to { opacity: 1; transform: none; } }
+    .nb-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .nb-head h3 { margin: 0; color: #93c5fd; font-size: 1.15rem; }
+    .nb-close { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 10px; padding: 4px 12px; cursor: pointer; font-size: 1rem; }
+    .nb-paper { position: relative; background: #fdfdf8; border-radius: 6px 6px 10px 10px; padding: 22px 8px 10px; box-shadow: inset 0 0 0 1px #cbd5e1, 0 6px 0 #e2e8f0, 0 8px 0 #cbd5e1; transform-origin: 50% 0; }
+    .nb-paper.flip { animation: pageFlip .7s ease-in-out; }
+    @keyframes pageFlip { 0% { transform: none; } 45% { transform: perspective(900px) rotateX(-80deg); opacity: .3; } 55% { transform: perspective(900px) rotateX(-80deg); opacity: .3; } 100% { transform: none; } }
+    .nb-spiral { position: absolute; top: -9px; left: 10px; right: 10px; height: 18px; pointer-events: none;
+        background: radial-gradient(circle at 50% 50%, #1e293b 0 4px, #94a3b8 5px 6px, transparent 7px) 0 0 / 22px 18px repeat-x; }
+    .nb-grid { width: fit-content; margin: 0 auto; display: grid; grid-template-columns: repeat(14, var(--cs)); grid-auto-rows: var(--cs); direction: ltr; touch-action: none; border-left: 2px solid #f87171; }
+    .nb-cell { position: relative; border: 1px solid #bfdbfe; margin: 0 -1px -1px 0; display: flex; align-items: center; justify-content: center;
+        font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe Print', cursive; font-size: calc(var(--cs) * .66); color: #1e3a8a; cursor: pointer; }
+    .nb-cell.sel { outline: 3px solid #f59e0b; outline-offset: -2px; z-index: 2; animation: selBlink 1.2s ease-in-out infinite; }
+    @keyframes selBlink { 50% { outline-color: rgba(245,158,11,.35); } }
+    .nb-cell .v.pop { animation: inkPop .3s cubic-bezier(.3,1.8,.5,1); }
+    @keyframes inkPop { from { transform: scale(.2) rotate(-20deg); opacity: 0; } }
+    .nb-cell .v.op { color: #c2410c; }
+    .nb-cell .s { position: absolute; top: 0; left: 2px; font-size: calc(var(--cs) * .36); color: #dc2626; line-height: 1; }
+    .nb-cell.u::after { content: ""; position: absolute; left: -1px; right: -1px; bottom: -2px; height: 3px; background: #1e3a8a; border-radius: 2px; transform-origin: left; animation: lineDraw .35s ease-out var(--ld, 0s) both; z-index: 1; }
+    @keyframes lineDraw { from { transform: scaleX(0); } }
+    .nb-cell.pending::after { content: ""; position: absolute; left: -1px; right: -1px; bottom: -2px; height: 3px; background: #f59e0b; }
+    .nb-cell.x::before { content: ""; position: absolute; inset: 12%; z-index: 1; pointer-events: none;
+        background: linear-gradient(to top right, transparent 45%, #dc2626 46% 54%, transparent 55%); animation: fadeIn .25s; }
+    .nb-tools, .nb-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+    .nb-mode, .nb-act { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); color: #e2e8f0; border-radius: 12px; padding: 7px 11px; cursor: pointer; font-size: .9rem; transition: all .2s; }
+    .nb-mode.on { background: linear-gradient(135deg, #2563eb, #7c3aed); border-color: #93c5fd; box-shadow: 0 0 14px rgba(96,165,250,.6); transform: translateY(-2px); }
+    .nb-act:hover, .nb-mode:hover { background: rgba(255,255,255,.16); }
+    .nb-keypad { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; direction: ltr; }
+    .nb-key { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 10px; padding: 9px 0; font-size: 1.1rem; cursor: pointer; transition: transform .1s, background .2s; font-family: 'Courier New', monospace; font-weight: bold; }
+    .nb-key:active { transform: scale(.9); background: #1e40af; }
+    .nb-key.opk { color: #fb923c; }
+    .nb-key.nav { color: #93c5fd; }
+    .nb-key.del { color: #fca5a5; }
+    .nb-hint-line { text-align: center; color: #94a3b8; font-size: .8rem; margin-top: 6px; min-height: 1.2em; }
+    .nb-history { margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .nb-page { background: #fdfdf8; color: #1e3a8a; border-radius: 10px; padding: 8px; font-size: .75rem; box-shadow: 0 3px 0 #cbd5e1; animation: slideUp .35s ease both; }
+    .nb-page pre { margin: 4px 0; font-family: 'Courier New', monospace; font-size: .7rem; direction: ltr; text-align: left; overflow: hidden; max-height: 70px; line-height: 1.15; }
+    .nb-page .row { display: flex; gap: 4px; justify-content: space-between; }
+    .nb-page button { background: #e0e7ff; border: none; border-radius: 8px; padding: 3px 8px; cursor: pointer; font-size: .75rem; }
+    .nb-empty { color: #94a3b8; text-align: center; grid-column: 1 / -1; }
+
     /* ---------- Overlays ---------- */
     .cutscene-overlay {
         position: fixed; inset: 0; background: rgba(9, 13, 22, 0.96); z-index: 900;
@@ -386,6 +495,8 @@
     }
 
     @media (max-width: 600px) {
+        .modal-overlay { padding: 8px; }
+        .notebook { padding: 10px; }
         body { padding: 8px; }
         .container { padding: 14px; border-radius: 20px; }
         .scene-viewport { height: 180px; }
@@ -467,6 +578,7 @@
 
             <div class="top-controls">
                 <button class="btn-icon btn-calm" onclick="openBreathingModal()" title="נשימת כוח">🧘‍♀️ <span class="lbl">נְשִׁימַת כֹּחַ</span> <span class="calm-count" id="calm-count">0</span></button>
+                <button class="btn-icon" onclick="openNotebook()" title="מחברת חישובים">📓 <span class="lbl">מַחְבֶּרֶת</span></button>
                 <button class="btn-icon" onclick="speakCurrentMission()" title="הקראה">🔊 <span class="lbl">הַקְרָאָה</span></button>
                 <button class="btn-icon" id="mute-btn" onclick="toggleMute()">🔊 <span class="lbl">פָּעִיל</span></button>
             </div>
@@ -482,8 +594,21 @@
             <div class="scene-overlay-text" id="story-text"></div>
         </div>
 
+        <div class="focus-banner" id="focus-banner"><span id="focus-text"></span><button onclick="setFocusTopic(null)">🌈 כָּל הַנּוֹשְׂאִים</button></div>
         <div id="question-card" class="question-card">
-            <span class="topic-tag" id="topic-badge"></span>
+            <div class="card-top">
+                <span class="topic-tag" id="topic-badge"></span>
+                <div>
+                    <div class="level-switch" id="level-switch" data-lv="0">
+                        <div class="ls-thumb"></div>
+                        <button class="ls-opt" data-lv="0">🤖 אוֹטוֹ</button>
+                        <button class="ls-opt" data-lv="1"><span class="st">★</span> קַל</button>
+                        <button class="ls-opt" data-lv="2"><span class="st">★★</span></button>
+                        <button class="ls-opt" data-lv="3"><span class="st">★★★</span></button>
+                    </div>
+                    <div class="ls-label" id="ls-label"></div>
+                </div>
+            </div>
             <div class="question-text" id="question-text"></div>
             <div class="visual-area" id="visual-area"></div>
         </div>
@@ -492,14 +617,16 @@
 
         <div class="action-buttons" id="action-buttons">
             <button class="btn-primary" id="submit-btn" onclick="checkAnswer()">⚡ שַׁגְּרִי פִּתְרוֹן</button>
-            <button class="btn-hint" onclick="toggleHint()">💡 גַּאדְגֶ'ט עֶזְרָה</button>
-            <button class="btn-soft" id="swap-btn" onclick="swapMission()" title="אפשר להחליף משימה בלי שום עונש">🔁 מְשִׂימָה אַחֶרֶת</button>
+            <button class="btn-hint" id="hint-btn" onclick="toggleHint()"><span class="bulb">💡</span> גַּאדְגֶ'ט עֶזְרָה</button>
+            <button class="btn-soft" onclick="openNotebook()">📓 מַחְבֶּרֶת חִשּׁוּבִים</button>
+            <button class="btn-soft" id="swap-btn" onclick="swapMission()" title="אפשר להחליף משימה בלי שום עונש">⏭️ שְׁאֵלָה הַבָּאָה</button>
         </div>
 
         <div class="hint-box" id="hint-box"></div>
         <div class="solution-box" id="solution-box"></div>
         <div class="feedback" id="feedback-box"></div>
 
+        <div class="skills-title"><span>🎯 לְחִיצָה עַל נוֹשֵׂא = תִּרְגּוּל רַק שֶׁלּוֹ</span><button class="chip-all" id="chip-all" onclick="setFocusTopic(null)">🌈 כָּל הַנּוֹשְׂאִים</button></div>
         <div class="skills-bar" id="skills-bar"></div>
     </div>
 </div>
@@ -514,6 +641,33 @@
     <p id="cutscene-desc"></p>
     <div id="cutscene-extra"></div>
     <div class="action-buttons" id="cutscene-buttons"></div>
+</div>
+
+<!-- ===== Notebook ===== -->
+<div class="modal-overlay" id="notebook-modal">
+    <div class="notebook" id="notebook">
+        <div class="nb-head">
+            <h3>📓 מַחְבֶּרֶת הַחִשּׁוּבִים שֶׁל הַסּוֹכֶנֶת</h3>
+            <button class="nb-close" onclick="closeNotebook()">✖</button>
+        </div>
+        <div class="nb-paper" id="nb-paper"><div class="nb-spiral"></div><div class="nb-grid" id="nb-grid"></div></div>
+        <div class="nb-tools" id="nb-tools">
+            <button class="nb-mode on" data-mode="write">✏️ כְּתִיבָה</button>
+            <button class="nb-mode" data-mode="small">🔸 סִפְרָה קְטַנָּה</button>
+            <button class="nb-mode" data-mode="line">➖ קַו חִשּׁוּב</button>
+            <button class="nb-mode" data-mode="cross">╱ מְחִיקָה</button>
+        </div>
+        <div class="nb-hint-line" id="nb-hint-line"></div>
+        <div class="nb-keypad" id="nb-keypad"></div>
+        <div class="nb-actions">
+            <button class="nb-act" onclick="nbCopyMission(false)">📋 הַעְתִּיקִי תַּרְגִּיל</button>
+            <button class="nb-act" onclick="nbCopyMission(true)">📐 תַּרְגִּיל בִּמְאֻנָּךְ</button>
+            <button class="nb-act" onclick="nbClear()">🧽 נִקּוּי דַּף</button>
+            <button class="nb-act" onclick="nbSaveNew()">💾 שְׁמִירָה וְדַף חָדָשׁ</button>
+            <button class="nb-act" onclick="nbToggleHistory()">🗂️ הִיסְטוֹרְיָה</button>
+        </div>
+        <div class="nb-history" id="nb-history" style="display:none"></div>
+    </div>
 </div>
 
 <!-- ===== Breathing Modal ===== -->
@@ -607,9 +761,9 @@ animateStars();
 // =====================================================================
 let particles = [];
 let fxRunning = false;
-function burst(x, y, count = 60, power = 9) {
+function burst(x, y, count = 60, power = 9, palette = null) {
     if (reduceMotion) return;
-    const colors = ['#38bdf8', '#22c55e', '#f59e0b', '#a855f7', '#ffffff', '#f472b6'];
+    const colors = palette || ['#38bdf8', '#22c55e', '#f59e0b', '#a855f7', '#ffffff', '#f472b6'];
     for (let i = 0; i < count; i++) {
         const a = Math.random() * Math.PI * 2;
         const v = Math.random() * power + 2;
@@ -724,7 +878,9 @@ const sfx = {
     soft()    { tone(440, 0, 0.5, 'sine', 0.07); tone(554, 0.12, 0.6, 'sine', 0.06); },
     levelUp() { [392, 523, 659, 784, 988].forEach((f, i) => tone(f, i * 0.07, 0.35, 'square', 0.04)); },
     whoosh()  { [220, 330, 440, 660, 880].forEach((f, i) => tone(f, i * 0.05, 0.3, 'sine', 0.05)); },
-    click()   { tone(880, 0, 0.08, 'sine', 0.04); }
+    click()   { tone(880, 0, 0.08, 'sine', 0.04); },
+    hint()    { [660, 880, 1320].forEach((f, i) => tone(f, i * 0.08, 0.4, 'sine', 0.05)); },
+    pen()     { tone(1200 + Math.random() * 300, 0, 0.05, 'triangle', 0.025); }
 };
 
 // =====================================================================
@@ -1729,7 +1885,10 @@ function linesSvg(kind) {
 // =====================================================================
 //  Adaptive topic selection
 // =====================================================================
+let nextTopicOnce = null;
 function pickNextTopic() {
+    if (nextTopicOnce) { const t = nextTopicOnce; nextTopicOnce = null; return t; }
+    if (state.focusTopic && topics[state.focusTopic]) return state.focusTopic;
     const keys = Object.keys(topics).filter(k => k !== lastTopic);
     const weights = keys.map(k => {
         const t = state.topics[k];
@@ -1835,7 +1994,7 @@ function newAdventure() {
 function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 function swapMission() {
-    if (answered) return;
+    if (answered) return nextMission();
     sfx.click();
     showToast('🔁 אֵין בְּעָיָה – הִנֵּה מְשִׂימָה אַחֶרֶת!', 1800);
     loadQuestionUI();
@@ -1866,8 +2025,9 @@ function loadQuestionUI() {
 
     currentTopic = pickNextTopic();
     lastTopic = currentTopic;
-    let lv = levelOf(currentTopic);
-    if (calmQuestions > 0) { lv = Math.max(1, lv - 1); calmQuestions--; }
+    const override = state.topics[currentTopic].override || 0;
+    let lv = override || levelOf(currentTopic);
+    if (!override && calmQuestions > 0) { lv = Math.max(1, lv - 1); calmQuestions--; }
     currentMission = generators[currentTopic](lv);
     currentMission.level = lv;
 
@@ -1879,6 +2039,8 @@ function loadQuestionUI() {
 
     $('topic-badge').innerHTML = `${topics[currentTopic].icon} ${topics[currentTopic].name} <span class="level-stars">${levelStars(lv)}</span>`;
     $('question-text').textContent = currentMission.question;
+    updateLevelSwitch();
+    updateFocusUI();
 
     const card = $('question-card');
     card.classList.remove('question-card'); void card.offsetWidth; card.classList.add('question-card');
@@ -2048,13 +2210,45 @@ function showHint(force = false) {
     const hb = $('hint-box');
     if (!currentMission) return;
     if (!force && hb.style.display === 'block') { hb.style.display = 'none'; return; }
-    hb.innerHTML = currentMission.hint;
+    const parts = currentMission.hint.split(/<br\s*\/?>/);
+    hb.innerHTML = '<span class="hint-bulb">💡</span>' + parts.map((h, i) =>
+        `<div class="hl" style="--d:${(0.35 + i * 0.45).toFixed(2)}s; animation-delay:${(0.35 + i * 0.45).toFixed(2)}s">${h}</div>`).join('');
     hb.style.display = 'block';
-    hb.style.animation = 'none'; void hb.offsetWidth; hb.style.animation = '';
+    hb.classList.remove('anim'); void hb.offsetWidth; hb.classList.add('anim');
+    hintFx(hb);
     if (!answered) usedHint = true;
     speak(currentMission.hint.replace(/<svg[\s\S]*?<\/svg>/g, ''));
 }
 function toggleHint() { sfx.click(); showHint(false); }
+function hintFx(hb) {
+    sfx.hint();
+    const md = document.querySelector('.math-display');
+    if (md) { md.classList.remove('scan'); void md.offsetWidth; md.classList.add('scan'); }
+    const from = $('hint-btn');
+    if (reduceMotion || !from || !from.animate) return;
+    const a = from.getBoundingClientRect(), b = hb.getBoundingClientRect();
+    const g = document.createElement('div');
+    g.className = 'gadget-fly';
+    g.textContent = '🛸';
+    document.body.appendChild(g);
+    const x0 = a.left + a.width / 2 - 17, y0 = a.top - 10, x1 = b.left + 20, y1 = b.top + 4;
+    const mx = (x0 + x1) / 2, my = Math.min(y0, y1) - 90;
+    g.animate([
+        { transform: `translate(${x0}px, ${y0}px) scale(.3) rotate(-30deg)`, opacity: 0 },
+        { transform: `translate(${x0}px, ${y0 - 30}px) scale(1.2) rotate(10deg)`, opacity: 1, offset: .2 },
+        { transform: `translate(${mx}px, ${my}px) scale(1.1) rotate(-12deg)`, opacity: 1, offset: .55 },
+        { transform: `translate(${x1}px, ${y1}px) scale(.5) rotate(0)`, opacity: 0 }
+    ], { duration: 1100, easing: 'cubic-bezier(.4,0,.3,1)' }).onfinish = () => {
+        g.remove();
+        burst(x1 + 17, y1 + 17, 30, 5, ['#fcd34d', '#f59e0b', '#fde68a', '#ffffff']);
+    };
+    let k = 0;
+    const trail = setInterval(() => {
+        const r = g.getBoundingClientRect();
+        if (!g.isConnected || k++ > 12) return clearInterval(trail);
+        burst(r.left + 17, r.top + 22, 3, 1.5, ['#fde68a', '#38bdf8']);
+    }, 80);
+}
 function showSolution() {
     const sb = $('solution-box');
     const steps = currentMission.solution || [];
@@ -2111,13 +2305,357 @@ function renderSkillsBar(levelUpTopic = null) {
     bar.innerHTML = '';
     for (const k in topics) {
         const t = state.topics[k];
-        const pill = document.createElement('div');
-        pill.className = 'skill-pill' + (k === currentTopic ? ' active' : '') + (k === levelUpTopic ? ' up' : '');
-        pill.innerHTML = `<div class="skill-head"><span>${topics[k].icon} ${topics[k].name}</span><span class="level-stars">${levelStars(levelOf(k))}</span></div>
+        const pill = document.createElement('button');
+        pill.className = 'skill-pill' + (k === currentTopic ? ' active' : '') + (k === levelUpTopic ? ' up' : '') + (k === state.focusTopic ? ' focused' : '');
+        pill.title = 'לחצי כדי לתרגל רק את הנושא הזה';
+        pill.onclick = () => setFocusTopic(state.focusTopic === k ? null : k);
+        const lvShow = t.override ? `${levelStars(t.override)}` : levelStars(levelOf(k));
+        pill.innerHTML = `<div class="skill-head"><span><span class="pin">📌 </span>${topics[k].icon} ${topics[k].name}</span><span class="level-stars">${lvShow}${t.override ? ' 🔒' : ''}</span></div>
             <div class="mini-bar"><div class="mini-fill" style="width:0%"></div></div>`;
         bar.appendChild(pill);
         requestAnimationFrame(() => requestAnimationFrame(() => { pill.querySelector('.mini-fill').style.width = `${t.mastery}%`; }));
     }
+}
+
+// =====================================================================
+//  Topic focus + difficulty switch
+// =====================================================================
+function setFocusTopic(k) {
+    state.focusTopic = k;
+    saveState();
+    sfx.click();
+    if (k) {
+        showToast(`📌 מְתַרְגְּלוֹת עַכְשָׁו: ${topics[k].icon} ${topics[k].name}`, 2000);
+        nextTopicOnce = k;
+        if (answered) nextMission(); else loadQuestionUI();
+    } else {
+        showToast('🌈 חוֹזְרוֹת לְכָל הַנּוֹשְׂאִים', 1600);
+        updateFocusUI();
+        renderSkillsBar();
+    }
+}
+function updateFocusUI() {
+    const k = state.focusTopic;
+    $('focus-banner').classList.toggle('show', !!k);
+    if (k) $('focus-text').textContent = `📌 מְתַרְגְּלוֹת רַק: ${topics[k].icon} ${topics[k].name}`;
+    $('chip-all').classList.toggle('on', !k);
+}
+const LV_LABELS = ['הַמַּחְשֵׁב בּוֹחֵר לְפִי הַהַצְלָחוֹת', 'רָמָה קַלָּה', 'רָמָה בֵּינוֹנִית', 'רָמָה מְאַתְגֶּרֶת'];
+function updateLevelSwitch() {
+    const sw = $('level-switch');
+    const ov = state.topics[currentTopic].override || 0;
+    sw.dataset.lv = ov;
+    sw.querySelector('.ls-thumb').style.right = `calc(3px + ${ov} * (100% - 6px) / 4)`;
+    sw.querySelectorAll('.ls-opt').forEach(b => b.classList.toggle('on', +b.dataset.lv === ov));
+    $('ls-label').textContent = ov ? `🔒 ${LV_LABELS[ov]} בְּ${topics[currentTopic].name}` : `🤖 ${LV_LABELS[0]} (${levelStars(levelOf(currentTopic))})`;
+}
+document.querySelectorAll('#level-switch .ls-opt').forEach(btn => btn.addEventListener('click', () => {
+    if (!currentTopic) return;
+    const lv = +btn.dataset.lv;
+    if ((state.topics[currentTopic].override || 0) === lv) return;
+    state.topics[currentTopic].override = lv;
+    saveState();
+    [523, 659, 784].slice(0, lv + 1).forEach((f, i) => tone(f, i * 0.06, 0.25, 'triangle', 0.06));
+    updateLevelSwitch();
+    const r = btn.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, 18, 4);
+    nextTopicOnce = currentTopic;
+    setTimeout(() => { if (answered) nextMission(); else loadQuestionUI(); }, 350);
+}));
+
+// =====================================================================
+//  Notebook – a squared-paper grid to write on (no calculating)
+// =====================================================================
+const NB_ROWS = 12, NB_COLS = 14, NB_KEY = 'mathHeroNotebook_v1';
+let nb = { cells: [], history: [] };
+let nbSel = { r: 0, c: 1 }, nbRowStart = 1, nbMode = 'write', nbDrag = null;
+const NB_OPS = ['+', '−', '×', ':', '=', '(', ')', ',', '/', '?'];
+function nbBlank() { return Array.from({ length: NB_ROWS }, () => Array.from({ length: NB_COLS }, () => ({ v: '', s: '', u: false, x: false }))); }
+function nbPack(cells) {
+    const out = [];
+    cells.forEach((row, r) => row.forEach((c, k) => { if (c.v || c.s || c.u || c.x) out.push([r, k, c.v, c.s, c.u ? 1 : 0, c.x ? 1 : 0]); }));
+    return out;
+}
+function nbUnpack(list) {
+    const cells = nbBlank();
+    (list || []).forEach(([r, k, v, s, u, x]) => { if (cells[r] && cells[r][k]) cells[r][k] = { v, s, u: !!u, x: !!x }; });
+    return cells;
+}
+function nbLoad() {
+    try {
+        const d = JSON.parse(localStorage.getItem(NB_KEY) || 'null');
+        if (d) { nb.cells = nbUnpack(d.current); nb.history = d.history || []; return; }
+    } catch (e) {}
+    nb.cells = nbBlank();
+}
+function nbSave() { try { localStorage.setItem(NB_KEY, JSON.stringify({ current: nbPack(nb.cells), history: nb.history })); } catch (e) {} }
+function nbIsEmpty() { return nbPack(nb.cells).length === 0; }
+
+function nbBuild() {
+    const grid = $('nb-grid');
+    grid.innerHTML = '';
+    for (let r = 0; r < NB_ROWS; r++) for (let c = 0; c < NB_COLS; c++) {
+        const el = document.createElement('div');
+        el.className = 'nb-cell';
+        el.dataset.r = r; el.dataset.c = c;
+        el.innerHTML = '<span class="v"></span><span class="s"></span>';
+        grid.appendChild(el);
+    }
+    grid.addEventListener('pointerdown', nbPointerDown);
+    grid.addEventListener('pointermove', nbPointerMove);
+    window.addEventListener('pointerup', nbPointerUp);
+    const keys = ['7', '8', '9', '+', '−', '(', ')', '4', '5', '6', '×', ':', '=', ',', '1', '2', '3', '0', '/', '?', '⌫', '←', '↑', '↓', '→', '↵', '␣', '🗑'];
+    const kp = $('nb-keypad');
+    kp.innerHTML = keys.map(k => {
+        const cls = /\d/.test(k) ? '' : NB_OPS.includes(k) ? 'opk' : (k === '⌫' || k === '🗑') ? 'del' : 'nav';
+        const title = { '⌫': 'מחיקה אחורה', '🗑': 'מחיקת משבצת', '↵': 'שורה חדשה', '␣': 'רווח' }[k] || '';
+        return `<button class="nb-key ${cls}" data-k="${k}" title="${title}">${k}</button>`;
+    }).join('');
+    kp.addEventListener('click', e => { const b = e.target.closest('.nb-key'); if (b) nbKey(b.dataset.k); });
+    document.querySelectorAll('#nb-tools .nb-mode').forEach(b => b.addEventListener('click', () => nbSetMode(b.dataset.mode)));
+}
+function nbCellEl(r, c) { return $('nb-grid').children[r * NB_COLS + c]; }
+function nbRenderCell(r, c, pop = false) {
+    const cell = nb.cells[r][c], el = nbCellEl(r, c);
+    const v = el.querySelector('.v'), sm = el.querySelector('.s');
+    v.textContent = cell.v; sm.textContent = cell.s;
+    v.classList.toggle('op', NB_OPS.includes(cell.v));
+    el.classList.toggle('u', cell.u);
+    el.classList.toggle('x', cell.x);
+    if (pop && cell.v) { v.classList.remove('pop'); void v.offsetWidth; v.classList.add('pop'); }
+}
+function nbRenderAll() {
+    for (let r = 0; r < NB_ROWS; r++) for (let c = 0; c < NB_COLS; c++) nbRenderCell(r, c);
+    nbRenderSel();
+}
+function nbRenderSel() {
+    document.querySelectorAll('.nb-cell.sel').forEach(e => e.classList.remove('sel'));
+    if (nbMode === 'write' || nbMode === 'small') nbCellEl(nbSel.r, nbSel.c).classList.add('sel');
+}
+const NB_MODE_TIPS = {
+    write: 'הַקִּישִׁי עַל מִשְׁבֶּצֶת וְכִתְבִי בַּמַּקְלֶדֶת. הַסַּמָּן זָז יְמִינָה לְבַד.',
+    small: 'סִפְרָה קְטַנָּה לְמַעְלָה בַּמִּשְׁבֶּצֶת – בִּשְׁבִיל פְּרִיטָה וְהַעֲבָרָה.',
+    line: 'גִּרְרִי אֶצְבַּע עַל מִשְׁבְּצוֹת בְּשׁוּרָה כְּדֵי לְמַתֵּחַ קַו חִשּׁוּב (הַקָּשָׁה שְׁנִיָּה מוֹחֶקֶת).',
+    cross: 'הַקִּישִׁי עַל סִפְרָה כְּדֵי לִמְחֹק אוֹתָהּ בְּקַו (כְּמוֹ בִּפְרִיטָה).'
+};
+function nbSetMode(m) {
+    nbMode = m;
+    document.querySelectorAll('#nb-tools .nb-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    $('nb-hint-line').textContent = NB_MODE_TIPS[m];
+    nbRenderSel();
+    sfx.click();
+}
+function nbCellFromEvent(e) {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = el && el.closest('.nb-cell');
+    return cell ? { r: +cell.dataset.r, c: +cell.dataset.c } : null;
+}
+function nbPointerDown(e) {
+    const p = nbCellFromEvent(e);
+    if (!p) return;
+    e.preventDefault();
+    if (nbMode === 'line') {
+        const turnOn = !nb.cells[p.r][p.c].u;
+        nbDrag = { r: p.r, c0: p.c, c1: p.c, on: turnOn };
+        nbShowPending();
+    } else if (nbMode === 'cross') {
+        const cell = nb.cells[p.r][p.c];
+        cell.x = !cell.x;
+        nbRenderCell(p.r, p.c); nbSave(); sfx.pen();
+    } else {
+        nbSel = p; nbRowStart = p.c;
+        nbRenderSel(); sfx.click();
+    }
+}
+function nbPointerMove(e) {
+    if (!nbDrag) return;
+    const p = nbCellFromEvent(e);
+    if (p && p.r === nbDrag.r && p.c !== nbDrag.c1) { nbDrag.c1 = p.c; nbShowPending(); }
+}
+function nbShowPending() {
+    document.querySelectorAll('.nb-cell.pending').forEach(e => e.classList.remove('pending'));
+    if (!nbDrag || !nbDrag.on) return;
+    const [a, b] = [Math.min(nbDrag.c0, nbDrag.c1), Math.max(nbDrag.c0, nbDrag.c1)];
+    for (let c = a; c <= b; c++) nbCellEl(nbDrag.r, c).classList.add('pending');
+}
+function nbPointerUp() {
+    if (!nbDrag) return;
+    const [a, b] = [Math.min(nbDrag.c0, nbDrag.c1), Math.max(nbDrag.c0, nbDrag.c1)];
+    for (let c = a; c <= b; c++) {
+        nb.cells[nbDrag.r][c].u = nbDrag.on;
+        const el = nbCellEl(nbDrag.r, c);
+        el.classList.remove('pending', 'u');
+        if (nbDrag.on) { el.style.setProperty('--ld', `${(c - a) * 0.04}s`); void el.offsetWidth; }
+        nbRenderCell(nbDrag.r, c);
+    }
+    nbDrag = null;
+    nbSave(); sfx.pen();
+}
+function nbMove(dr, dc) {
+    nbSel.r = Math.max(0, Math.min(NB_ROWS - 1, nbSel.r + dr));
+    nbSel.c = Math.max(0, Math.min(NB_COLS - 1, nbSel.c + dc));
+    nbRenderSel();
+}
+function nbWrite(ch) {
+    if (nbMode !== 'write' && nbMode !== 'small') nbSetMode('write');
+    const cell = nb.cells[nbSel.r][nbSel.c];
+    if (nbMode === 'small') { cell.s = /\d/.test(ch) ? ch : cell.s; }
+    else { cell.v = ch; cell.x = false; }
+    nbRenderCell(nbSel.r, nbSel.c, true);
+    sfx.pen();
+    if (nbMode === 'write') {
+        if (nbSel.c < NB_COLS - 1) nbMove(0, 1);
+        else if (nbSel.r < NB_ROWS - 1) { nbSel = { r: nbSel.r + 1, c: nbRowStart }; nbRenderSel(); }
+    }
+    nbSave();
+}
+function nbKey(k) {
+    if (/^\d$/.test(k) || NB_OPS.includes(k)) return nbWrite(k);
+    const cell = nb.cells[nbSel.r][nbSel.c];
+    switch (k) {
+        case '⌫':
+            if (nbMode === 'small') { cell.s = ''; }
+            else if (!cell.v && nbSel.c > 0) { nbMove(0, -1); const p = nb.cells[nbSel.r][nbSel.c]; p.v = ''; p.x = false; nbRenderCell(nbSel.r, nbSel.c); }
+            else { cell.v = ''; cell.x = false; }
+            nbRenderCell(nbSel.r, nbSel.c); nbSave(); break;
+        case '🗑': nb.cells[nbSel.r][nbSel.c] = { v: '', s: '', u: false, x: false }; nbRenderCell(nbSel.r, nbSel.c); nbSave(); break;
+        case '←': nbMove(0, -1); break;
+        case '→': case '␣': nbMove(0, 1); break;
+        case '↑': nbMove(-1, 0); break;
+        case '↓': nbMove(1, 0); break;
+        case '↵': nbSel = { r: Math.min(NB_ROWS - 1, nbSel.r + 1), c: nbRowStart }; nbRenderSel(); break;
+    }
+}
+function nbKeydown(e) {
+    if (e.target && e.target.tagName === 'INPUT') return;
+    const map = { '-': '−', '*': '×', 'x': '×', 'X': '×', '/': ':', 'Backspace': '⌫', 'Delete': '🗑', 'ArrowLeft': '←', 'ArrowRight': '→', 'ArrowUp': '↑', 'ArrowDown': '↓', 'Enter': '↵', ' ': '␣' };
+    const k = map[e.key] || e.key;
+    if (e.key === 'Escape') return closeNotebook();
+    if (/^\d$/.test(k) || NB_OPS.includes(k) || ['⌫', '🗑', '←', '→', '↑', '↓', '↵', '␣'].includes(k)) { e.preventDefault(); nbKey(k); }
+}
+let nbBuilt = false;
+function openNotebook() {
+    if (!nbBuilt) { nbLoad(); nbBuild(); nbBuilt = true; }
+    $('notebook-modal').classList.add('show');
+    const box = $('notebook');
+    box.style.animation = 'none'; void box.offsetWidth; box.style.animation = '';
+    $('nb-history').style.display = 'none';
+    nbSetMode(nbMode);
+    nbRenderAll();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+function closeNotebook() { $('notebook-modal').classList.remove('show'); nbSave(); }
+$('notebook-modal').addEventListener('click', e => { if (e.target.id === 'notebook-modal') closeNotebook(); });
+
+function nbTokens() {
+    if (!currentMission || !currentMission.math) return null;
+    return currentMission.math.map(t => {
+        if (t === BLANK) return '?';
+        const f = /<span class="frac"><span>(\d+)<\/span><span>(\d+)<\/span><\/span>/.exec(t);
+        if (f) return `${f[1]}/${f[2]}`;
+        return String(t).replace(/<[^>]*>/g, '').replace(/(\d),(\d{3})/g, '$1$2').replace(/\s+/g, '').trim();
+    }).filter(Boolean);
+}
+function nbPutText(r, c, text) {
+    [...text].forEach((ch, i) => {
+        const cc = c + i;
+        if (r < NB_ROWS && cc < NB_COLS) { nb.cells[r][cc] = { v: ch, s: '', u: false, x: false }; setTimeout(() => { nbRenderCell(r, cc, true); sfx.pen(); }, i * 45); }
+    });
+}
+function nbFreeRow() {
+    for (let r = nbSel.r; r < NB_ROWS; r++) if (nb.cells[r].every(c => !c.v && !c.s && !c.u)) return r;
+    return null;
+}
+function nbCopyMission(vertical) {
+    const toks = nbTokens();
+    if (!toks) { showToast('📓 בַּשְּׁאֵלָה הַזֹּאת אֵין תַּרְגִּיל לְהַעְתִּיק – אֶפְשָׁר לִכְתֹּב בְּעַצְמֵךְ!', 2400); return; }
+    let r = nbFreeRow();
+    if (r === null) { showToast('📄 הַדַּף מָלֵא – שִׁמְרִי וּפִתְחִי דַּף חָדָשׁ', 2200); return; }
+    if (vertical) {
+        // a op b = ?  → numbers right-aligned one under the other with a line
+        const ok = toks.length >= 3 && /^\d+$/.test(toks[0]) && ['+', '−', '×'].includes(toks[1]) && /^\d+$/.test(toks[2]);
+        if (!ok) { showToast('📐 אֶת הַתַּרְגִּיל הַזֶּה לֹא כּוֹתְבִים בִּמְאֻנָּךְ – נַעְתִּיק אוֹתוֹ בְּשׁוּרָה', 2200); return nbCopyMission(false); }
+        if (r + 3 > NB_ROWS) { showToast('📄 אֵין מַסְפִּיק מָקוֹם – פִּתְחִי דַּף חָדָשׁ', 2200); return; }
+        const [a, op, b] = toks, right = 9;
+        nbPutText(r, right - a.length + 1, a);
+        nbPutText(r + 1, right - b.length + 1, b);
+        nb.cells[r + 1][right - Math.max(a.length, b.length)] = { v: op, s: '', u: false, x: false };
+        const from = right - Math.max(a.length, b.length);
+        setTimeout(() => {
+            for (let c = from; c <= right; c++) { nb.cells[r + 1][c].u = true; nbRenderCell(r + 1, c); }
+            nbRenderCell(r + 1, from, true);
+            sfx.pen(); nbSave();
+        }, 450);
+        nbSel = { r: r + 2, c: right }; nbRowStart = right - Math.max(a.length, b.length) + 1;
+        nbSetMode('write');
+        $('nb-hint-line').textContent = 'כִּתְבִי אֶת הַתְּשׁוּבָה מִתַּחַת לַקַּו. 🔸 סִפְרָה קְטַנָּה = פְּרִיטָה, ╱ מְחִיקָה = לִמְחֹק סִפְרָה שֶׁפָּרַטְנוּ מִמֶּנָּה.';
+    } else {
+        const text = toks.join('');
+        nbPutText(r, 1, text.slice(0, NB_COLS - 1));
+        if (text.length > NB_COLS - 1 && r + 1 < NB_ROWS) nbPutText(r + 1, 1, text.slice(NB_COLS - 1));
+        nbSel = { r: Math.min(NB_ROWS - 1, r + (text.length > NB_COLS - 1 ? 3 : 2)), c: 1 }; nbRowStart = 1;
+    }
+    nbRenderSel();
+    nbSave();
+}
+function nbFlip(after) {
+    const p = $('nb-paper');
+    p.classList.remove('flip'); void p.offsetWidth; p.classList.add('flip');
+    sfx.whoosh();
+    setTimeout(after, 330);
+}
+function nbClear() {
+    if (nbIsEmpty()) return;
+    nbFlip(() => { nb.cells = nbBlank(); nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); nbSave(); });
+}
+function nbSaveNew() {
+    if (nbIsEmpty()) { showToast('📓 הַדַּף רֵיק – אֵין מָה לִשְׁמֹר', 1600); return; }
+    nb.history.unshift({
+        t: Date.now(),
+        title: currentMission ? `${topics[currentTopic].icon} ${topics[currentTopic].name}` : '📓 דַּף חִשּׁוּבִים',
+        cells: nbPack(nb.cells)
+    });
+    nb.history = nb.history.slice(0, 40);
+    nbFlip(() => { nb.cells = nbBlank(); nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); nbSave(); if ($('nb-history').style.display !== 'none') nbRenderHistory(); });
+    showToast('💾 הַדַּף נִשְׁמַר בַּהִיסְטוֹרְיָה!', 1600);
+}
+function nbPreview(packed) {
+    const cells = nbUnpack(packed);
+    const rows = cells.map(row => row.map(c => c.v || ' ').join('').replace(/\s+$/, ''));
+    while (rows.length && !rows[rows.length - 1]) rows.pop();
+    while (rows.length && !rows[0]) rows.shift();
+    return rows.slice(0, 6).join('\n').replace(/[<>&]/g, '');
+}
+function nbRenderHistory() {
+    const box = $('nb-history');
+    if (!nb.history.length) { box.innerHTML = '<div class="nb-empty">עֲדַיִן אֵין דַּפִּים שְׁמוּרִים. לְחִיצָה עַל 💾 שׁוֹמֶרֶת אֶת הַדַּף.</div>'; return; }
+    box.innerHTML = nb.history.map((h, i) => {
+        const d = new Date(h.t);
+        const when = `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        return `<div class="nb-page" style="animation-delay:${i * 0.04}s">
+            <div class="row"><strong>${h.title}</strong><span>${when}</span></div>
+            <pre>${nbPreview(h.cells)}</pre>
+            <div class="row"><button onclick="nbOpenPage(${i})">📖 פְּתִיחָה</button><button onclick="nbDeletePage(${i})">🗑️</button></div>
+        </div>`;
+    }).join('');
+}
+function nbToggleHistory() {
+    const box = $('nb-history');
+    const show = box.style.display === 'none';
+    box.style.display = show ? 'grid' : 'none';
+    if (show) { nbRenderHistory(); setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50); }
+    sfx.click();
+}
+function nbOpenPage(i) {
+    const page = nb.history[i];
+    if (!page) return;
+    if (!nbIsEmpty()) nb.history.unshift({ t: Date.now(), title: '📓 דַּף שֶׁהָיָה פָּתוּחַ', cells: nbPack(nb.cells) });
+    nb.history = nb.history.filter(h => h !== page);
+    nbFlip(() => { nb.cells = nbUnpack(page.cells); nbSel = { r: 0, c: 1 }; nbRenderAll(); nbSave(); nbRenderHistory(); });
+}
+function nbDeletePage(i) {
+    nb.history.splice(i, 1);
+    nbSave(); nbRenderHistory(); sfx.click();
 }
 
 // =====================================================================
@@ -2188,6 +2726,7 @@ function closeBreathingModal() {
 }
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && $('breathing-modal').classList.contains('show')) closeBreathingModal();
+    else if ($('notebook-modal').classList.contains('show')) nbKeydown(e);
 });
 
 // =====================================================================
