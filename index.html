@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#090d16">
+<title>סוכנת-על: מבצע הצלת העולם</title>
+<meta name="description" content="משחק חשבון לכיתה ד' – גיבורת-על מצילה את העולם בעזרת פתרון תרגילים, בלי שעון ובלי לחץ, עם תרגילי נשימה והקראה קולית.">
+<link rel="preload" as="image" href="hero_mission.jpg">
+<style>
+    :root {
+        --bg-dark: #090d16;
+        --card-bg: #131c31;
+        --primary: #38bdf8;
+        --secondary: #a855f7;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --calm: #2dd4bf;
+        --text-light: #f8fafc;
+        --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', 'Arial Hebrew', Tahoma, Arial, sans-serif; }
+    html { background: var(--bg-dark); }
+    body {
+        margin: 0;
+        background: radial-gradient(circle at top, #1e1b4b, var(--bg-dark) 70%);
+        background-attachment: fixed;
+        color: var(--text-light);
+        min-height: 100vh;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 15px;
+        overflow-x: hidden;
+    }
+    button { font-family: inherit; }
+    .ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+
+    #starfield, #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #starfield { z-index: 0; }
+    #fx { z-index: 1500; }
+
+    /* Floating math symbols in the background */
+    .floaters { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .floater {
+        position: absolute; bottom: -60px;
+        color: rgba(56, 189, 248, 0.18);
+        font-weight: bold;
+        animation: floatUp linear infinite;
+        font-family: 'Courier New', monospace;
+    }
+    .floater.gold { color: rgba(245, 158, 11, 0.16); }
+    @keyframes floatUp {
+        0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-115vh) rotate(200deg); opacity: 0; }
+    }
+
+    .container {
+        max-width: 860px; width: 100%;
+        background: rgba(19, 28, 49, 0.9);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-radius: 26px;
+        padding: 22px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.65);
+        border: 2px solid rgba(56, 189, 248, 0.35);
+        position: relative; z-index: 1;
+        overflow: hidden;
+        animation: containerIn 0.7s cubic-bezier(.2,.9,.3,1.2);
+    }
+    @keyframes containerIn { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: none; } }
+    .container::before { /* rotating border light */
+        content: ""; position: absolute; inset: -2px; border-radius: 26px; padding: 2px;
+        background: conic-gradient(from var(--ang, 0deg), transparent 0 70%, rgba(56,189,248,.9) 80%, rgba(168,85,247,.9) 88%, transparent 95%);
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude;
+        animation: spinBorder 6s linear infinite; pointer-events: none; opacity: .7;
+    }
+    @property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    @keyframes spinBorder { to { --ang: 360deg; } }
+
+    .celebrate-pulse { animation: celebrateGlow 0.9s ease; }
+    @keyframes celebrateGlow {
+        0% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.2); }
+        45% { box-shadow: 0 0 60px rgba(34, 197, 94, 0.85); transform: scale(1.012); }
+        100% { box-shadow: 0 25px 60px rgba(0,0,0,0.65); transform: scale(1); }
+    }
+
+    /* ---------- Start screen ---------- */
+    #start-screen { text-align: center; padding: 6px 0; }
+    .start-media {
+        position: relative; max-width: 520px; margin: 0 auto 14px;
+        border-radius: 18px; overflow: hidden;
+        border: 2px solid var(--primary);
+        box-shadow: 0 10px 30px rgba(56,189,248,0.3);
+        aspect-ratio: 16 / 9; background: #050811;
+        animation: heroFloat 5s ease-in-out infinite;
+    }
+    @keyframes heroFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    .start-media img, .start-media video { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
+    .start-media video { opacity: 0; transition: opacity .8s; }
+    .start-media video.ready { opacity: 1; }
+    .shine-title {
+        margin: 10px 0 6px; font-size: clamp(1.5rem, 4.6vw, 2.2rem);
+        background: linear-gradient(90deg, #38bdf8, #a855f7, #f59e0b, #38bdf8);
+        background-size: 300% 100%;
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        animation: shine 6s linear infinite;
+    }
+    @keyframes shine { to { background-position: 300% 0; } }
+    .lead { font-size: 1.08rem; color: var(--text-muted); max-width: 580px; margin: 0 auto 16px; line-height: 1.7; }
+    .lead strong { color: #e0f2fe; }
+
+    .setup-card {
+        max-width: 560px; margin: 0 auto 14px; padding: 16px;
+        background: rgba(9,13,22,.6); border: 1px solid rgba(56,189,248,.3); border-radius: 18px;
+        animation: slideUp .5s ease both;
+    }
+    .setup-card label { display: block; margin-bottom: 8px; color: #bae6fd; font-weight: bold; }
+    .name-input {
+        background: #090d16; border: 2px solid rgba(56,189,248,.6); color: white;
+        font-size: 1.15rem; padding: 10px 14px; border-radius: 12px; width: 100%; max-width: 280px; text-align: center; outline: none;
+    }
+    .name-input:focus { box-shadow: 0 0 16px rgba(56,189,248,.5); }
+    .mood-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+    .mood-btn {
+        flex: 1 1 140px; max-width: 170px;
+        background: rgba(255,255,255,.06); border: 2px solid rgba(255,255,255,.15); color: white;
+        border-radius: 16px; padding: 12px 8px; cursor: pointer; font-size: 1rem; transition: all .25s;
+    }
+    .mood-btn .emo { font-size: 2rem; display: block; margin-bottom: 4px; transition: transform .3s; }
+    .mood-btn:hover .emo { transform: scale(1.2) rotate(-6deg); }
+    .mood-btn.selected { border-color: var(--calm); background: rgba(45,212,191,.18); box-shadow: 0 0 18px rgba(45,212,191,.4); }
+    .mood-reply { min-height: 1.6em; margin-top: 10px; color: #99f6e4; }
+
+    /* ---------- Scene viewport ---------- */
+    .scene-viewport {
+        width: 100%; height: 230px; border-radius: 18px; overflow: hidden; position: relative;
+        margin-bottom: 16px; border: 2px solid rgba(168, 85, 247, 0.5); background: #050811;
+        box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+    }
+    .scene-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: filter 0.8s ease, opacity .5s; }
+    .ken-burns { animation: kenBurns 14s infinite alternate ease-in-out; }
+    @keyframes kenBurns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.14) translate(-12px, -8px); } }
+    .holo-scanline {
+        position: absolute; inset: 0; z-index: 2; pointer-events: none;
+        background: linear-gradient(to bottom, rgba(56,189,248,0) 50%, rgba(56,189,248,0.06) 51%);
+        background-size: 100% 6px;
+        animation: scan 8s linear infinite;
+    }
+    @keyframes scan { to { background-position: 0 120px; } }
+    .holo-sweep {
+        position: absolute; left: 0; right: 0; height: 60px; z-index: 2; pointer-events: none;
+        background: linear-gradient(to bottom, transparent, rgba(56,189,248,.12), transparent);
+        animation: sweep 5s ease-in-out infinite;
+    }
+    @keyframes sweep { 0% { top: -60px; } 100% { top: 100%; } }
+    .scene-badge {
+        position: absolute; top: 12px; left: 12px; z-index: 3;
+        background: rgba(9, 13, 22, 0.8); border: 1px solid var(--primary); color: var(--primary);
+        padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;
+    }
+    .chapter-badge {
+        position: absolute; top: 12px; right: 12px; z-index: 3;
+        background: rgba(9, 13, 22, 0.8); border: 1px solid var(--secondary); color: #d8b4fe;
+        padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px;
+    }
+    .dots { display: flex; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #d8b4fe; transition: all .4s; }
+    .dot.on { background: var(--success); border-color: var(--success); box-shadow: 0 0 8px var(--success); animation: dotPop .5s cubic-bezier(.3,1.8,.5,1); }
+    @keyframes dotPop { 0% { transform: scale(.2); } 100% { transform: scale(1); } }
+    .live-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: blink 1.5s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .scene-overlay-text {
+        position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
+        background: linear-gradient(transparent, rgba(9, 13, 22, 0.96) 38%);
+        padding: 34px 18px 12px; font-size: 1.05rem; color: #e0f2fe; min-height: 70px; line-height: 1.5;
+    }
+    .caret { display: inline-block; width: 2px; height: 1em; background: var(--primary); margin-inline-start: 2px; vertical-align: -2px; animation: blink .8s infinite; }
+
+    /* ---------- Header ---------- */
+    .header {
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 14px; margin-bottom: 16px;
+    }
+    .hero-badge { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+        width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+        border: 2px solid var(--primary);
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        animation: avatarGlow 3s ease-in-out infinite;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; transform: scale(2.6); transform-origin: 50% 22%; }
+    .avatar.bounce { animation: avatarBounce .7s cubic-bezier(.3,1.8,.5,1), avatarGlow 3s ease-in-out infinite; }
+    @keyframes avatarGlow { 0%,100% { box-shadow: 0 0 12px rgba(56,189,248,.5); } 50% { box-shadow: 0 0 26px rgba(168,85,247,.8); } }
+    @keyframes avatarBounce { 0% { transform: scale(1); } 40% { transform: scale(1.25) rotate(-8deg); } 100% { transform: scale(1); } }
+    .shield-bar-container { flex-grow: 1; max-width: 260px; min-width: 180px; }
+    .shield-label { font-size: 0.85rem; color: var(--primary); margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .shield-bar { height: 14px; background: #090d16; border-radius: 10px; overflow: hidden; border: 1px solid var(--primary); position: relative; }
+    .shield-bar.flash { animation: barFlash .9s ease; }
+    @keyframes barFlash { 0%,100% { box-shadow: none; } 40% { box-shadow: 0 0 22px var(--success); } }
+    .shield-fill {
+        height: 100%; width: 0%; position: relative; overflow: hidden;
+        background: linear-gradient(90deg, var(--primary), var(--success));
+        transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .shield-fill::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.55) 50%, transparent 80%);
+        transform: translateX(-100%); animation: shimmer 2.4s infinite;
+    }
+    @keyframes shimmer { to { transform: translateX(100%); } }
+    .top-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-icon {
+        background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: white;
+        padding: 8px 13px; border-radius: 12px; cursor: pointer; font-size: 0.88rem;
+        display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;
+    }
+    .btn-icon:hover { background: rgba(255,255,255,0.18); transform: translateY(-2px); }
+    .btn-calm { background: linear-gradient(135deg, #0d9488, #0284c7); border: none; font-weight: bold; }
+    .calm-count { background: rgba(9,13,22,.5); border-radius: 8px; padding: 0 6px; }
+
+    /* ---------- Question card ---------- */
+    .question-card { animation: cardIn .55s cubic-bezier(.2,.9,.3,1.15) both; }
+    @keyframes cardIn { from { opacity: 0; transform: perspective(800px) rotateX(-18deg) translateY(16px); } to { opacity: 1; transform: none; } }
+    .topic-tag {
+        display: inline-flex; gap: 6px; align-items: center;
+        background: rgba(168, 85, 247, 0.2); color: #d8b4fe; padding: 4px 12px; border-radius: 20px;
+        font-size: 0.85rem; margin-bottom: 8px; border: 1px solid rgba(168, 85, 247, 0.4);
+    }
+    .level-stars { color: var(--warning); letter-spacing: 1px; }
+    .question-text { font-size: 1.3rem; font-weight: bold; margin: 10px 0; line-height: 1.6; }
+    .math-display {
+        direction: ltr; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+        background: #090d16; padding: 12px 24px; border-radius: 14px;
+        font-size: 1.7rem; font-family: 'Courier New', monospace; font-weight: bold;
+        margin: 10px 0; border: 1px solid rgba(56, 189, 248, 0.45); color: var(--primary);
+        box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15);
+    }
+    .math-display.rtl { direction: rtl; }
+    .math-display .tok { display: inline-block; animation: tokIn .45s cubic-bezier(.3,1.6,.5,1) both; }
+    @keyframes tokIn { from { opacity: 0; transform: translateY(-14px) scale(.6); } to { opacity: 1; transform: none; } }
+    .blank {
+        display: inline-block; min-width: 1.6em; text-align: center; color: var(--warning);
+        border-bottom: 3px solid var(--warning); animation: blankPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes blankPulse { 0%,100% { text-shadow: 0 0 0 transparent; } 50% { text-shadow: 0 0 14px var(--warning); } }
+    .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; vertical-align: middle; font-size: .9em; }
+    .frac > span:first-child { border-bottom: 3px solid currentColor; padding: 0 4px 3px; }
+    .frac > span:last-child { padding-top: 3px; }
+    .visual-area { display: flex; justify-content: center; margin: 12px 0; }
+    .visual-area svg { max-width: 100%; height: auto; }
+    .draw { stroke-dasharray: 400; stroke-dashoffset: 400; animation: draw 1.2s ease forwards; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    .fill-in { animation: fillIn .5s ease both; }
+    @keyframes fillIn { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: none; } }
+
+    .answer-area { margin-top: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .answer-input {
+        background: #090d16; border: 2px solid var(--primary); color: white;
+        font-size: 1.6rem; padding: 12px 20px; border-radius: 14px; width: 220px; text-align: center; outline: none;
+        transition: box-shadow 0.2s, border-color .3s; direction: ltr;
+    }
+    .answer-input:focus { box-shadow: 0 0 18px rgba(56, 189, 248, 0.55); }
+    .answer-input.correct { border-color: var(--success); box-shadow: 0 0 24px rgba(34,197,94,.7); }
+    .wobble { animation: wobble .6s ease; }
+    @keyframes wobble { 0%,100% { transform: none; } 25% { transform: rotate(-2deg) scale(1.02); } 50% { transform: rotate(2deg); } 75% { transform: rotate(-1deg); } }
+    .options-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; width: 100%; }
+    .option-btn {
+        background: rgba(255,255,255,0.07); border: 2px solid rgba(56, 189, 248, 0.3); color: white;
+        padding: 14px; border-radius: 14px; font-size: 1.15rem; cursor: pointer; transition: all 0.2s;
+        animation: tokIn .45s cubic-bezier(.3,1.6,.5,1) both;
+    }
+    .option-btn:hover:not(:disabled) { background: rgba(56, 189, 248, 0.22); border-color: var(--primary); transform: scale(1.03); }
+    .option-btn.ltr-opt { direction: ltr; font-family: 'Courier New', monospace; font-weight: bold; }
+    .option-btn.correct { border-color: var(--success); background: rgba(34,197,94,.25); box-shadow: 0 0 20px rgba(34,197,94,.5); }
+    .option-btn.tried { opacity: .4; cursor: default; border-style: dashed; }
+
+    .action-buttons { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), #2563eb); color: white; border: none;
+        padding: 13px 28px; font-size: 1.12rem; font-weight: bold; border-radius: 14px; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.45); transition: transform 0.2s, box-shadow .2s;
+        position: relative; overflow: hidden;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(37, 99, 235, 0.6); }
+    .btn-primary.glow { animation: btnGlow 2s ease-in-out infinite; }
+    @keyframes btnGlow { 0%,100% { box-shadow: 0 4px 15px rgba(37,99,235,.45); } 50% { box-shadow: 0 0 30px rgba(56,189,248,.9); } }
+    .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.45); transform: scale(0); animation: ripple .6s linear; pointer-events: none; }
+    @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+    .btn-hint { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning); color: #fcd34d; padding: 12px 18px; border-radius: 14px; cursor: pointer; font-size: 1rem; transition: transform .2s; }
+    .btn-hint:hover, .btn-soft:hover { transform: translateY(-2px); }
+    .btn-soft { background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.5); color: #cbd5e1; padding: 12px 18px; border-radius: 14px; cursor: pointer; font-size: 1rem; transition: transform .2s; }
+    .hint-box, .solution-box {
+        display: none; border-radius: 12px; padding: 15px; margin-top: 15px; line-height: 1.8; animation: slideUp 0.35s ease;
+    }
+    .hint-box { background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); color: #fde68a; }
+    .solution-box { background: rgba(45,212,191,.1); border: 1px solid var(--calm); color: #ccfbf1; }
+    .solution-box .step { opacity: 0; animation: slideUp .4s ease forwards; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .feedback { margin-top: 15px; padding: 15px; border-radius: 14px; font-size: 1.12rem; font-weight: bold; text-align: center; display: none; animation: fadeIn 0.35s ease; line-height: 1.6; }
+    .feedback.success { background: rgba(34, 197, 94, 0.2); border: 1px solid var(--success); color: #86efac; }
+    .feedback.gentle { background: rgba(56, 189, 248, 0.15); border: 1px solid var(--primary); color: #bae6fd; }
+
+    .skills-bar { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; }
+    .skill-pill { background: rgba(9, 13, 22, 0.85); padding: 8px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); transition: transform .3s, border-color .3s; }
+    .skill-pill.active { border-color: var(--secondary); transform: translateY(-3px); box-shadow: 0 6px 16px rgba(168,85,247,.25); }
+    .skill-pill.up { animation: pillUp .9s ease; }
+    @keyframes pillUp { 30% { transform: scale(1.08); border-color: var(--warning); box-shadow: 0 0 20px rgba(245,158,11,.6); } }
+    .skill-head { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+    .mini-bar { height: 6px; border-radius: 4px; background: #1e293b; overflow: hidden; }
+    .mini-fill { height: 100%; background: linear-gradient(90deg, var(--secondary), var(--primary)); transition: width .9s cubic-bezier(.34,1.56,.64,1); }
+
+    /* ---------- Overlays ---------- */
+    .cutscene-overlay {
+        position: fixed; inset: 0; background: rgba(9, 13, 22, 0.96); z-index: 900;
+        display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        padding: 22px; overflow-y: auto;
+    }
+    .cutscene-overlay.show { display: flex; animation: fadeIn 0.5s ease; }
+    .cutscene-media-box {
+        width: 92%; max-width: 560px; aspect-ratio: 16/9; border-radius: 18px; overflow: hidden;
+        border: 2px solid var(--primary); box-shadow: 0 0 35px rgba(56, 189, 248, 0.45);
+        margin-bottom: 14px; position: relative; background: #050811; flex-shrink: 0;
+        animation: zoomIn .8s cubic-bezier(.2,.9,.3,1.2);
+    }
+    @keyframes zoomIn { from { transform: scale(.6) rotate(-3deg); opacity: 0; } to { transform: none; opacity: 1; } }
+    .cutscene-media-box img, .cutscene-media-box video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .cutscene-overlay h2 { color: var(--primary); margin: 6px 0; animation: slideUp .6s .3s both; }
+    .cutscene-overlay p { font-size: 1.12rem; max-width: 540px; line-height: 1.7; color: #e2e8f0; animation: slideUp .6s .5s both; }
+    .cutscene-overlay .btn-primary { animation: slideUp .6s .7s both, btnGlow 2s 1.3s ease-in-out infinite; }
+
+    .certificate {
+        margin: 6px auto 14px; max-width: 520px; padding: 16px 20px; border-radius: 18px;
+        border: 2px solid var(--warning); background: linear-gradient(135deg, rgba(245,158,11,.12), rgba(168,85,247,.12));
+        box-shadow: 0 0 30px rgba(245,158,11,.35); animation: slideUp .6s .5s both;
+    }
+    .certificate h3 { margin: 0 0 6px; color: #fcd34d; font-size: 1.35rem; }
+    .stat-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+    .stat { background: rgba(9,13,22,.6); border-radius: 12px; padding: 8px 12px; font-size: .95rem; }
+    .stat b { display: block; font-size: 1.4rem; color: var(--primary); }
+
+    .modal-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(9, 13, 22, 0.94); z-index: 1000;
+        justify-content: center; align-items: center; padding: 20px;
+    }
+    .modal-overlay.show { display: flex; animation: fadeIn .4s ease; }
+    .breathing-card {
+        background: var(--card-bg); border: 2px solid var(--calm); border-radius: 24px; padding: 28px;
+        max-width: 460px; width: 100%; text-align: center; box-shadow: 0 0 40px rgba(45, 212, 191, 0.35);
+    }
+    .breath-stage { position: relative; width: 210px; height: 210px; margin: 14px auto; display: flex; align-items: center; justify-content: center; }
+    .breath-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px dashed rgba(45,212,191,.35); animation: spin 30s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .breath-circle {
+        width: 130px; height: 130px; border-radius: 50%;
+        background: radial-gradient(circle, #5eead4, #0284c7);
+        display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px;
+        font-size: 1.05rem; font-weight: bold; color: #090d16;
+        transform: scale(.85); box-shadow: 0 0 15px #2dd4bf;
+        transition-property: transform, box-shadow; transition-timing-function: ease-in-out;
+    }
+    .breath-circle.big { transform: scale(1.4); box-shadow: 0 0 55px #38bdf8; }
+    .breath-count { color: #99f6e4; font-size: .95rem; min-height: 1.4em; }
+    .affirmation { font-size: 1.05rem; color: #bae6fd; min-height: 3.2em; line-height: 1.6; transition: opacity .6s; }
+
+    .toast {
+        position: fixed; top: 18px; left: 50%; transform: translate(-50%, -140%); z-index: 1200;
+        background: linear-gradient(135deg, #f59e0b, #a855f7); color: white; font-weight: bold;
+        padding: 12px 22px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+        transition: transform .5s cubic-bezier(.3,1.6,.5,1); max-width: 92vw; text-align: center;
+    }
+    .toast.show { transform: translate(-50%, 0); }
+    .energy-orb {
+        position: fixed; width: 22px; height: 22px; border-radius: 50%; z-index: 1400; pointer-events: none;
+        background: radial-gradient(circle, #fff, #38bdf8 45%, rgba(56,189,248,0) 70%);
+        box-shadow: 0 0 25px #38bdf8, 0 0 50px #a855f7;
+    }
+
+    @media (max-width: 600px) {
+        body { padding: 8px; }
+        .container { padding: 14px; border-radius: 20px; }
+        .scene-viewport { height: 180px; }
+        .question-text { font-size: 1.15rem; }
+        .math-display { font-size: 1.35rem; padding: 10px 14px; }
+        .top-controls .btn-icon .lbl { display: none; }
+        .shield-bar-container { max-width: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div class="floaters" id="floaters"></div>
+<canvas id="fx"></canvas>
+<div class="toast" id="toast"></div>
+
+<div class="container" id="main-container">
+
+    <!-- ===== Start Screen ===== -->
+    <div id="start-screen">
+        <div class="start-media">
+            <img id="start-img" src="hero_mission.jpg" alt="סוכנת העל במפקדה">
+            <video id="start-video" src="hero_story.mp4" autoplay muted loop playsinline preload="auto" poster="hero_mission.jpg"></video>
+        </div>
+        <h1 class="shine-title">מִבְצָע: כּוֹחַ הָעָל הַמָּתֵמָטִי</h1>
+        <p class="lead">
+            בְּרוּכָה הַבָּאָה לַמִּפְקָדָה! הָעוֹלָם זָקוּק לְגִבּוֹרַת-עָל שֶׁיּוֹדַעַת לִפְתֹּר צְפָנִים סוֹדִיִּים.
+            <br>
+            <strong>חֹק הַבַּרְזֶל שֶׁל הַמִּפְקָדָה:</strong> אֵין כָּאן שָׁעוֹן וְאֵין לַחַץ! לְגִבּוֹרוֹת אֲמִתִּיּוֹת יֵשׁ זְמַן לַחְשֹׁב, לִנְשֹׁם, וְלִבְדֹּק אֶת הַדֶּרֶךְ בְּנַחַת.
+        </p>
+
+        <div class="setup-card">
+            <label for="hero-name">🦸‍♀️ אֵיךְ קוֹרְאִים לַסּוֹכֶנֶת?</label>
+            <input id="hero-name" class="name-input" maxlength="18" placeholder="הַשֵּׁם שֶׁלָּךְ (לֹא חוֹבָה)">
+        </div>
+
+        <div class="setup-card" style="animation-delay:.15s">
+            <label>💙 לִפְנֵי שֶׁיּוֹצְאִים לַמְּשִׂימָה – אֵיךְ אַתְּ מַרְגִּישָׁה עַכְשָׁיו?</label>
+            <div class="mood-row">
+                <button class="mood-btn" data-mood="calm"><span class="emo">😌</span>רְגוּעָה וּמוּכָנָה</button>
+                <button class="mood-btn" data-mood="some"><span class="emo">😐</span>קְצָת לְחוּצָה</button>
+                <button class="mood-btn" data-mood="very"><span class="emo">😟</span>מְאוֹד לְחוּצָה</button>
+            </div>
+            <div class="mood-reply" id="mood-reply"></div>
+        </div>
+
+        <div id="start-buttons">
+            <button class="btn-primary glow" id="start-btn" onclick="startGame(true)">🚀 הַתְחִילִי בַּמְּשִׂימָה (עִם קוֹל)</button>
+            <br><br>
+            <button class="btn-icon" style="margin: 0 auto;" onclick="startGame(false)">🔇 הַתְחִילִי לְלֹא קוֹל</button>
+            <div id="resume-area" style="display:none; margin-top:14px;">
+                <button class="btn-soft" onclick="resetProgress()">🔄 הַתְחִילִי הַרְפַּתְקָה חֲדָשָׁה מֵהַהַתְחָלָה</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Game Screen ===== -->
+    <div id="game-screen" style="display: none;">
+        <div class="header">
+            <div class="hero-badge">
+                <div class="avatar" id="avatar"><img src="hero_mission.jpg" alt=""></div>
+                <div>
+                    <div style="font-weight: bold; font-size: 1.1rem;" id="hero-title">סוֹכֶנֶת הָעָל</div>
+                    <div style="font-size: 0.85rem; color: var(--success);" id="rank-text">דַּרְגָּה: מְגִנַּת הָעִיר</div>
+                </div>
+            </div>
+
+            <div class="shield-bar-container">
+                <div class="shield-label">
+                    <span>🛡️ כִּפַּת הַמָּגֵן שֶׁל הָעִיר</span>
+                    <span id="shield-percent">0%</span>
+                </div>
+                <div class="shield-bar" id="shield-bar"><div class="shield-fill" id="shield-fill"></div></div>
+            </div>
+
+            <div class="top-controls">
+                <button class="btn-icon btn-calm" onclick="openBreathingModal()" title="נשימת כוח">🧘‍♀️ <span class="lbl">נְשִׁימַת כֹּחַ</span> <span class="calm-count" id="calm-count">0</span></button>
+                <button class="btn-icon" onclick="speakCurrentMission()" title="הקראה">🔊 <span class="lbl">הַקְרָאָה</span></button>
+                <button class="btn-icon" id="mute-btn" onclick="toggleMute()">🔊 <span class="lbl">פָּעִיל</span></button>
+            </div>
+        </div>
+
+        <div class="scene-viewport" id="scene-viewport">
+            <img id="scene-image" class="scene-media ken-burns" src="hero_mission.jpg" alt="זירת המשימה">
+            <video id="scene-video" class="scene-media" style="display:none;" muted playsinline preload="auto"></video>
+            <div class="holo-scanline"></div>
+            <div class="holo-sweep"></div>
+            <div class="scene-badge"><span class="live-dot"></span> <span id="cam-label">שִׁדּוּר חַי מֵהַמִּפְקָדָה</span></div>
+            <div class="chapter-badge"><span id="chapter-label">פֶּרֶק 1</span><span class="dots" id="chapter-dots"></span></div>
+            <div class="scene-overlay-text" id="story-text"></div>
+        </div>
+
+        <div id="question-card" class="question-card">
+            <span class="topic-tag" id="topic-badge"></span>
+            <div class="question-text" id="question-text"></div>
+            <div class="visual-area" id="visual-area"></div>
+        </div>
+
+        <div class="answer-area" id="answer-area"></div>
+
+        <div class="action-buttons" id="action-buttons">
+            <button class="btn-primary" id="submit-btn" onclick="checkAnswer()">⚡ שַׁגְּרִי פִּתְרוֹן</button>
+            <button class="btn-hint" onclick="toggleHint()">💡 גַּאדְגֶ'ט עֶזְרָה</button>
+            <button class="btn-soft" id="swap-btn" onclick="swapMission()" title="אפשר להחליף משימה בלי שום עונש">🔁 מְשִׂימָה אַחֶרֶת</button>
+        </div>
+
+        <div class="hint-box" id="hint-box"></div>
+        <div class="solution-box" id="solution-box"></div>
+        <div class="feedback" id="feedback-box"></div>
+
+        <div class="skills-bar" id="skills-bar"></div>
+    </div>
+</div>
+
+<!-- ===== Cutscene ===== -->
+<div class="cutscene-overlay" id="cutscene-overlay">
+    <div class="cutscene-media-box">
+        <img id="cutscene-img" src="hero_victory.jpg" alt="סצנת מעבר">
+        <video id="cutscene-video" style="display:none;" muted playsinline preload="auto"></video>
+    </div>
+    <h2 id="cutscene-title"></h2>
+    <p id="cutscene-desc"></p>
+    <div id="cutscene-extra"></div>
+    <div class="action-buttons" id="cutscene-buttons"></div>
+</div>
+
+<!-- ===== Breathing Modal ===== -->
+<div class="modal-overlay" id="breathing-modal">
+    <div class="breathing-card">
+        <h2 style="color: var(--calm); margin-top: 0;">טְעִינַת אֵנֶרְגִּיַּת עָל 🧘‍♀️</h2>
+        <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 0;">
+            גַּם גִּבּוֹרוֹת הָעָל הֲכִי חֲזָקוֹת עוֹצְרוֹת רֶגַע לָקַחַת אֲוִיר לִפְנֵי פְּעֻלָּה חֲשׁוּבָה.
+            <br>עִקְבִי אַחֲרֵי הַכַּדּוּר הַזּוֹהֵר:
+        </p>
+        <div class="breath-stage">
+            <div class="breath-ring"></div>
+            <div class="breath-circle" id="breath-circle"><span id="breath-text">שְׁאִיפָה...</span></div>
+        </div>
+        <div class="breath-count" id="breath-count"></div>
+        <p class="affirmation" id="affirmation"></p>
+        <button class="btn-primary" id="breath-done" style="background: linear-gradient(135deg,#0d9488,#0284c7);" onclick="closeBreathingModal()">✨ אֲנִי רְגוּעָה וּמוּכָנָה לְהַמְשִׁיךְ</button>
+    </div>
+</div>
+
+<script>
+'use strict';
+// =====================================================================
+//  Helpers
+// =====================================================================
+const $ = id => document.getElementById(id);
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const pick = arr => arr[randInt(0, arr.length - 1)];
+const fmt = n => n.toLocaleString('en-US');
+const L = s => `<span class="ltr" dir="ltr">${s}</span>`;
+const BLANK = '<span class="blank">?</span>';
+const frac = (n, d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) { const j = randInt(0, i); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// =====================================================================
+//  Background: starfield + floating math symbols
+// =====================================================================
+const canvas = $('starfield');
+const ctx = canvas.getContext('2d');
+let stars = [];
+function resizeCanvas() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    fxCanvas.width = window.innerWidth; fxCanvas.height = window.innerHeight;
+    stars = Array.from({ length: 95 }, () => ({
+        x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+        r: Math.random() * 1.8 + 0.4, speed: Math.random() * 0.45 + 0.1, tw: Math.random() * Math.PI * 2
+    }));
+}
+const fxCanvas = $('fx');
+const fx = fxCanvas.getContext('2d');
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+function animateStars() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    stars.forEach(s => {
+        s.y += s.speed; s.tw += 0.04;
+        if (s.y > canvas.height) { s.y = 0; s.x = Math.random() * canvas.width; }
+        ctx.globalAlpha = 0.45 + Math.sin(s.tw) * 0.35;
+        ctx.fillStyle = '#bae6fd';
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(animateStars);
+}
+animateStars();
+
+(function makeFloaters() {
+    if (reduceMotion) return;
+    const symbols = ['+', '−', '×', ':', '=', '½', '¾', '7', '3', '9', '%', '△', '□', '∠', '100'];
+    const box = $('floaters');
+    for (let i = 0; i < 16; i++) {
+        const s = document.createElement('span');
+        s.className = 'floater' + (i % 3 === 0 ? ' gold' : '');
+        s.textContent = pick(symbols);
+        s.style.left = `${Math.random() * 100}%`;
+        s.style.fontSize = `${randInt(18, 46)}px`;
+        s.style.animationDuration = `${randInt(18, 38)}s`;
+        s.style.animationDelay = `-${randInt(0, 30)}s`;
+        box.appendChild(s);
+    }
+})();
+
+// =====================================================================
+//  FX: confetti / spark particles on a canvas
+// =====================================================================
+let particles = [];
+let fxRunning = false;
+function burst(x, y, count = 60, power = 9) {
+    if (reduceMotion) return;
+    const colors = ['#38bdf8', '#22c55e', '#f59e0b', '#a855f7', '#ffffff', '#f472b6'];
+    for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const v = Math.random() * power + 2;
+        particles.push({
+            x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3,
+            life: 1, decay: 0.012 + Math.random() * 0.015,
+            size: Math.random() * 6 + 3, color: pick(colors),
+            rot: Math.random() * Math.PI, vr: (Math.random() - .5) * .3,
+            shape: Math.random() < 0.5 ? 'rect' : 'circle'
+        });
+    }
+    if (!fxRunning) { fxRunning = true; requestAnimationFrame(tickFx); }
+}
+function rainConfetti(seconds = 3) {
+    if (reduceMotion) return;
+    const end = performance.now() + seconds * 1000;
+    (function drop() {
+        for (let i = 0; i < 4; i++) {
+            particles.push({
+                x: Math.random() * fxCanvas.width, y: -10, vx: (Math.random() - .5) * 2, vy: Math.random() * 2 + 2,
+                life: 1, decay: 0.004, size: Math.random() * 7 + 4, color: pick(['#38bdf8', '#22c55e', '#f59e0b', '#a855f7', '#f472b6']),
+                rot: Math.random() * Math.PI, vr: (Math.random() - .5) * .2, shape: 'rect', noGravity: true
+            });
+        }
+        if (!fxRunning) { fxRunning = true; requestAnimationFrame(tickFx); }
+        if (performance.now() < end) setTimeout(drop, 60);
+    })();
+}
+function tickFx() {
+    fx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    particles = particles.filter(p => p.life > 0 && p.y < fxCanvas.height + 30);
+    particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (!p.noGravity) { p.vy += 0.22; p.vx *= 0.985; }
+        p.rot += p.vr; p.life -= p.decay;
+        fx.globalAlpha = Math.max(0, p.life);
+        fx.fillStyle = p.color;
+        fx.save(); fx.translate(p.x, p.y); fx.rotate(p.rot);
+        if (p.shape === 'rect') fx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        else { fx.beginPath(); fx.arc(0, 0, p.size / 2, 0, Math.PI * 2); fx.fill(); }
+        fx.restore();
+    });
+    fx.globalAlpha = 1;
+    if (particles.length) requestAnimationFrame(tickFx); else { fxRunning = false; fx.clearRect(0, 0, fxCanvas.width, fxCanvas.height); }
+}
+
+// Energy orb flying from the answer to the shield bar
+function energyBeam(fromEl, toEl) {
+    return new Promise(resolve => {
+        if (reduceMotion || !fromEl || !toEl || !fromEl.animate) return resolve();
+        const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+        const orb = document.createElement('div');
+        orb.className = 'energy-orb';
+        document.body.appendChild(orb);
+        const x0 = a.left + a.width / 2 - 11, y0 = a.top + a.height / 2 - 11;
+        const x1 = b.left + b.width / 2 - 11, y1 = b.top + b.height / 2 - 11;
+        const mx = (x0 + x1) / 2 + 80, my = Math.min(y0, y1) - 60;
+        const anim = orb.animate([
+            { transform: `translate(${x0}px, ${y0}px) scale(.6)`, opacity: 0 },
+            { transform: `translate(${x0}px, ${y0}px) scale(1.6)`, opacity: 1, offset: .15 },
+            { transform: `translate(${mx}px, ${my}px) scale(1.2)`, opacity: 1, offset: .55 },
+            { transform: `translate(${x1}px, ${y1}px) scale(.5)`, opacity: .9 }
+        ], { duration: 900, easing: 'cubic-bezier(.5,0,.3,1)' });
+        anim.onfinish = () => { orb.remove(); burst(x1 + 11, y1 + 11, 26, 5); resolve(); };
+    });
+}
+
+function addRipple(e) {
+    const btn = e.target.closest('.btn-primary');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const span = document.createElement('span');
+    const size = Math.max(r.width, r.height);
+    span.className = 'ripple';
+    span.style.width = span.style.height = size + 'px';
+    span.style.left = (e.clientX - r.left - size / 2) + 'px';
+    span.style.top = (e.clientY - r.top - size / 2) + 'px';
+    btn.appendChild(span);
+    setTimeout(() => span.remove(), 650);
+}
+document.addEventListener('click', addRipple);
+
+let toastTimer = null;
+function showToast(html, ms = 2600) {
+    const t = $('toast');
+    t.innerHTML = html;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// =====================================================================
+//  Sound: gentle Web Audio chimes (no harsh "wrong" buzzer)
+// =====================================================================
+let audioCtx = null;
+function tone(freq, start, dur, type = 'sine', vol = 0.12) {
+    if (!soundEnabled) return;
+    try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = type; o.frequency.value = freq;
+        const t0 = audioCtx.currentTime + start;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g).connect(audioCtx.destination);
+        o.start(t0); o.stop(t0 + dur + 0.05);
+    } catch (e) { /* audio not available */ }
+}
+const sfx = {
+    correct() { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.5, 'triangle', 0.1)); },
+    soft()    { tone(440, 0, 0.5, 'sine', 0.07); tone(554, 0.12, 0.6, 'sine', 0.06); },
+    levelUp() { [392, 523, 659, 784, 988].forEach((f, i) => tone(f, i * 0.07, 0.35, 'square', 0.04)); },
+    whoosh()  { [220, 330, 440, 660, 880].forEach((f, i) => tone(f, i * 0.05, 0.3, 'sine', 0.05)); },
+    click()   { tone(880, 0, 0.08, 'sine', 0.04); }
+};
+
+// =====================================================================
+//  Speech synthesis (Hebrew)
+// =====================================================================
+let soundEnabled = true;
+let hebrewVoice = null;
+function loadVoices() {
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices();
+    hebrewVoice = voices.find(v => /^he|^iw/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window) {
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+function toSpeech(text) {
+    return String(text)
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/(\d),(\d{3})/g, '$1$2')
+        .replace(/×/g, ' כָּפוּל ')
+        .replace(/(\d|\))\s*:\s*(\d|\()/g, '$1 לְחַלֵּק לְ $2')
+        .replace(/(\d|\))\s*[-−]\s*(\d|\()/g, '$1 פָּחוֹת $2')
+        .replace(/\+/g, ' וְעוֹד ')
+        .replace(/=/g, ' שָׁוֶה ')
+        .replace(/_{2,}|\?{2,}/g, ' כַּמָּה ')
+        .replace(/[\p{Extended_Pictographic}️‍]/gu, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+function speak(text) {
+    if (!soundEnabled || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(toSpeech(text));
+    u.lang = 'he-IL';
+    if (hebrewVoice) u.voice = hebrewVoice;
+    u.rate = 0.9;
+    u.pitch = 1.05;
+    window.speechSynthesis.speak(u);
+}
+function toggleMute() {
+    soundEnabled = !soundEnabled;
+    updateMuteBtn();
+    if (!soundEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+function updateMuteBtn() {
+    $('mute-btn').innerHTML = soundEnabled ? '🔊 <span class="lbl">פָּעִיל</span>' : '🔇 <span class="lbl">מֻשְׁתָּק</span>';
+}
+function speakCurrentMission() {
+    if (!currentMission) return;
+    speak(currentMission.spoken || currentMission.question);
+}
+
+// =====================================================================
+//  Video slicer – one master video, three virtual clips
+// =====================================================================
+const VIDEO_CONFIG = {
+    masterVideo: 'hero_story.mp4',
+    slices: {
+        mission:    { start: 0.0, end: 5.0, fallbackImg: 'hero_mission.jpg', label: 'שִׁדּוּר חַי מֵהַמִּפְקָדָה' },
+        energyBeam: { start: 5.2, end: 8.0, fallbackImg: 'hero_victory.jpg', label: 'שִׁגּוּר אֵנֶרְגִּיָּה!' },
+        victory:    { start: 8.0, end: 9.9, fallbackImg: 'hero_victory.jpg', label: 'מָגֵן הָעִיר פָּעִיל!' }
+    }
+};
+let videoAvailable = false;
+
+class SlicePlayer {
+    constructor(video, img, labelEl) {
+        this.v = video; this.img = img; this.labelEl = labelEl;
+        this.queue = []; this.slice = null;
+        this.v.addEventListener('timeupdate', () => this.tick());
+        this.v.addEventListener('ended', () => this.tick(true));
+        this.v.addEventListener('error', () => { videoAvailable = false; this.showImage(); });
+    }
+    play(keys, filter = 'none') {
+        this.queue = [...keys];
+        this.filter = filter;
+        this.next();
+    }
+    next() {
+        const key = this.queue.shift();
+        this.slice = VIDEO_CONFIG.slices[key] || VIDEO_CONFIG.slices.mission;
+        if (this.labelEl) this.labelEl.textContent = this.slice.label;
+        if (!videoAvailable) return this.showImage();
+        this.img.style.display = 'none';
+        this.v.style.display = 'block';
+        this.v.style.filter = this.filter;
+        if (!this.v.getAttribute('src')) this.v.src = VIDEO_CONFIG.masterVideo;
+        this.seek(this.slice.start);
+        this.v.play().catch(() => {});
+    }
+    seek(t) {
+        if (this.v.readyState >= 1) { try { this.v.currentTime = t; } catch (e) {} }
+        else this.v.addEventListener('loadedmetadata', () => { try { this.v.currentTime = t; } catch (e) {} }, { once: true });
+    }
+    tick(ended = false) {
+        if (!this.slice || this.v.style.display === 'none') return;
+        const t = this.v.currentTime;
+        if (ended || t >= this.slice.end || t < this.slice.start - 0.3) {
+            if (this.queue.length && (ended || t >= this.slice.end)) this.next();
+            else { this.seek(this.slice.start); if (ended) this.v.play().catch(() => {}); }
+        }
+    }
+    showImage() {
+        this.v.style.display = 'none';
+        this.img.style.display = 'block';
+        this.img.src = this.slice ? this.slice.fallbackImg : 'hero_mission.jpg';
+        this.img.style.filter = this.filter || 'none';
+    }
+    stop() { this.queue = []; try { this.v.pause(); } catch (e) {} }
+}
+
+const startVid = $('start-video');
+startVid.addEventListener('loadeddata', () => { videoAvailable = true; startVid.classList.add('ready'); });
+const scenePlayer = new SlicePlayer($('scene-video'), $('scene-image'), $('cam-label'));
+const cutPlayer = new SlicePlayer($('cutscene-video'), $('cutscene-img'), null);
+
+// =====================================================================
+//  Story
+// =====================================================================
+const MISSIONS_PER_CHAPTER = 4;
+const storyChapters = [
+    { text: '🚨 הַתְרָעָה בַּמִּפְקָדָה! לַוְיַן הַתִּקְשֹׁרֶת יָצָא מִכִּוּוּן. פִּתְרִי אֶת הַצְּפָנִים כְּדֵי לְיַצֵּב אוֹתוֹ:', filter: 'hue-rotate(0deg)' },
+    { text: '🛡️ חוֹמַת הַהֲגַנָּה שֶׁל הָעִיר זְקוּקָה לְקוֹד הַפְעָלָה חָדָשׁ. רַק חִשּׁוּב רָגוּעַ וּמְדֻיָּק יִפְתַּח אֶת הַשַּׁעַר:', filter: 'hue-rotate(25deg)' },
+    { text: '🤖 רוֹבּוֹט הַשְּׁמִירָה הִתְבַּלְבֵּל בַּסְּפִירָה. עִזְרִי לוֹ לְסַדֵּר אֶת הַנְּתוּנִים:', filter: 'hue-rotate(-25deg)' },
+    { text: '💎 גְּבִישׁ הָאֵנֶרְגִּיָה שֶׁל הַכּוּר עוֹמֵד לְהִכָּבוֹת! הַזִּינִי אֶת הַמִּסְפָּרִים הַנְּכוֹנִים כְּדֵי לְהַטְעִין אוֹתוֹ:', filter: 'hue-rotate(45deg)' },
+    { text: '🚀 הַחֲלָלִית מוּכָנָה לְהַמְרָאָה, אֲבָל מַחְשֵׁב הַנִּוּוּט מְבַקֵּשׁ אִמּוּת מֵהַסּוֹכֶנֶת:', filter: 'hue-rotate(-40deg)' },
+    { text: '☄️ מֶטֶאוֹרִים מִתְקָרְבִים לְכַדּוּר הָאָרֶץ! חַשְּׁבִי אֶת מַסְלוּל הַמָּגֵן:', filter: 'hue-rotate(15deg) saturate(1.2)' },
+    { text: '🌍 הַשָּׁלָב הָאַחֲרוֹן! הַפְעִילִי אֶת כִּפַּת הַמָּגֵן הַגְּדוֹלָה שֶׁל הָעִיר:', filter: 'saturate(1.3)' }
+];
+const chapterTransitions = [
+    { title: 'שָׁלָב 1 הֻשְׁלַם! הַלַּוְיָן חָזַר לִפְעֹל 🛰️', desc: 'כָּל הַכָּבוֹד! מַעֲרֶכֶת הַלַּוְיָנִים חָזְרָה לִפְעֹל בִּזְכוּת הַחֲשִׁיבָה הַשְּׁקֵטָה שֶׁלָּךְ. עַכְשָׁו – אֶל חוֹמַת הָעִיר!' },
+    { title: 'שָׁלָב 2 הֻשְׁלַם! הַשַּׁעַר נִפְתַּח 🛡️', desc: 'מַדְהִים! הַקּוֹד הַנָּכוֹן הִפְעִיל אֶת הַחוֹמָה. רוֹבּוֹט הַשְּׁמִירָה כְּבָר מְחַכֶּה לָךְ.' },
+    { title: 'שָׁלָב 3 הֻשְׁלַם! הָרוֹבּוֹט חָזַר לִסְפֹּר 🤖', desc: 'הָרוֹבּוֹט אוֹמֵר תּוֹדָה! הוּא לָמַד מִמֵּךְ שֶׁאֶפְשָׁר לַחְשֹׁב לְאַט וּבְבִטָּחוֹן.' },
+    { title: 'שָׁלָב 4 הֻשְׁלַם! כּוֹר הָאֵנֶרְגִּיָה מָלֵא ⚡', desc: 'הַשֶּׁקֶט וְהָרִכּוּז שֶׁלָּךְ טָעֲנוּ אֶת הַגְּבִישִׁים. הַחֲלָלִית מוּכָנָה לְהַמְרָאָה!' },
+    { title: 'שָׁלָב 5 הֻשְׁלַם! הַחֲלָלִית הִמְרִיאָה 🚀', desc: 'מַחְשֵׁב הַנִּוּוּט אִשֵּׁר: הַסּוֹכֶנֶת מוּכָנָה לַמְּשִׂימָה הַגְּדוֹלָה בְּיוֹתֵר.' },
+    { title: 'שָׁלָב 6 הֻשְׁלַם! הַמֶּטֶאוֹרִים הוּסְטוּ ☄️', desc: 'מַסְלוּל הַמָּגֵן מְדֻיָּק. נִשְׁאַר רַק צַעַד אֶחָד אַחֲרוֹן לְהַצָּלַת הָעוֹלָם!' }
+];
+const TOTAL_STORY = storyChapters.length * MISSIONS_PER_CHAPTER;
+const ranks = [
+    { min: 0, name: 'מְגִנַּת הָעִיר 🛡️' },
+    { min: 2, name: 'קֶפְּטֶן הָעָל ⭐' },
+    { min: 4, name: 'מְפַקֶּדֶת הַחֲלָלִית 🚀' },
+    { min: 6, name: 'אַגָּדַת הַגָּלַקְסְיָה 👑' }
+];
+
+// =====================================================================
+//  State + persistence
+// =====================================================================
+const SAVE_KEY = 'mathHeroSave_v2';
+const topics = {
+    subtraction:    { name: 'חִסּוּר עִם פְּרִיטָה', icon: '➖' },
+    multiplication: { name: 'כֶּפֶל וְחִלּוּק', icon: '✖️' },
+    equations:      { name: 'מִשְׁוָאוֹת וְסֵדֶר פְּעֻלּוֹת', icon: '⚖️' },
+    wordProblems:   { name: 'בְּעָיוֹת מִלּוּלִיּוֹת', icon: '📜' },
+    geometry:       { name: 'גֵּאוֹמֶטְרְיָה', icon: '📐' },
+    sequences:      { name: 'סְדָרוֹת', icon: '🔢' },
+    fractions:      { name: 'שְׁבָרִים', icon: '🍕' }
+};
+function freshState() {
+    const t = {};
+    for (const k in topics) t[k] = { mastery: 0, solved: 0, struggle: 0 };
+    return { name: '', storySolved: 0, totalSolved: 0, calmBreaths: 0, finished: false, topics: t };
+}
+let state = freshState();
+function loadState() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const s = JSON.parse(raw);
+        state = Object.assign(freshState(), s);
+        for (const k in topics) state.topics[k] = Object.assign({ mastery: 0, solved: 0, struggle: 0 }, s.topics && s.topics[k]);
+        return state.totalSolved > 0;
+    } catch (e) { return false; }
+}
+function saveState() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {} }
+function resetProgress() {
+    const name = state.name;
+    state = freshState();
+    state.name = name;
+    saveState();
+    $('resume-area').style.display = 'none';
+    $('start-btn').innerHTML = '🚀 הַתְחִילִי בַּמְּשִׂימָה (עִם קוֹל)';
+    showToast('🌱 הַרְפַּתְקָה חֲדָשָׁה מוּכָנָה!');
+}
+const levelOf = k => Math.min(3, 1 + Math.floor(state.topics[k].mastery / 34));
+const levelStars = lv => '★'.repeat(lv) + '☆'.repeat(3 - lv);
+
+let currentMission = null;
+let currentTopic = null;
+let lastTopic = null;
+let attempts = 0;
+let usedHint = false;
+let answered = false;
+let calmQuestions = 0;      // number of upcoming "confidence builder" questions
+let consecutiveMistakes = 0;
+let mood = 'calm';
+
+// =====================================================================
+//  Question generators (each receives a level 1..3)
+// =====================================================================
+function subSteps(a, b) {
+    const parts = [Math.floor(b / 100) * 100, Math.floor((b % 100) / 10) * 10, b % 10].filter(p => p > 0);
+    let cur = a; const lines = [];
+    parts.forEach(p => { lines.push(L(`${fmt(cur)} − ${p} = ${fmt(cur - p)}`)); cur -= p; });
+    return { parts, lines };
+}
+
+const generators = {
+    subtraction(lv) {
+        let a, b;
+        if (lv === 1) { a = randInt(3, 9) * 100 + randInt(2, 9) * 10 + randInt(0, 4); b = randInt(1, 8) * 10 + randInt(5, 9); }
+        else if (lv === 2) { a = randInt(4, 8) * 100 + randInt(1, 5); b = randInt(1, 3) * 100 + randInt(4, 8) * 10 + randInt(6, 9); }
+        else if (Math.random() < 0.5) { a = randInt(3, 9) * 1000; b = randInt(2, 8) * 100 + randInt(1, 9) * 10 + randInt(0, 9); }
+        else { a = randInt(3, 9) * 1000 + randInt(0, 3) * 100 + randInt(0, 2) * 10 + randInt(0, 4); b = randInt(2, 9) * 100 + randInt(3, 9) * 10 + randInt(5, 9); }
+        const ans = a - b;
+        const { parts, lines } = subSteps(a, b);
+        return {
+            question: pick(['פַּעְנְחִי אֶת קוֹד הַפְּרִיצָה:', 'חִשְׁבִי אֶת הַהֶפְרֵשׁ כְּדֵי לְנַטְרֵל אֶת הַמַּנְעוּל:', 'כַּמָּה אֵנֶרְגִּיָה נִשְׁאֲרָה בַּסּוֹלְלָה?']),
+            math: [fmt(a), '−', b, '=', BLANK],
+            spoken: `כַּמָּה זֶה ${a} פָּחוֹת ${b}? קְחִי נְשִׁימָה וְחִשְׁבִי לְאַט.`,
+            type: 'input', answer: ans,
+            hint: `💡 <strong>שִׁיטַת הַפֵּרוּק הָרְגוּעָה:</strong><br>
+                   מְפָרְקִים אֶת ${L(b)} לַחֲלָקִים: ${L(parts.join(' + '))}, וּמוֹרִידִים כָּל חֵלֶק בְּנִפְרָד.<br>
+                   הַצַּעַד הָרִאשׁוֹן: ${lines[0]}<br>
+                   🔍 <strong>בְּדִיקָה הֲפוּכָה:</strong> הַתְּשׁוּבָה + ${L(b)} צְרִיכָה לָתֵת בְּדִיּוּק ${L(fmt(a))}.`,
+            solution: [...lines, `✅ בְּדִיקָה: ${L(`${fmt(ans)} + ${b} = ${fmt(a)}`)}`]
+        };
+    },
+
+    multiplication(lv) {
+        if (lv === 1) {
+            const a = pick([2, 3, 4, 5, 10]), b = randInt(2, 10);
+            const ans = a * b;
+            const hint = b <= 5
+                ? `חִבּוּר חוֹזֵר: ${L(Array(b).fill(a).join(' + '))}`
+                : `פַּרְקִי: ${L(`${a} × 5 = ${a * 5}`)}, וְעוֹד ${L(`${a} × ${b - 5} = ${a * (b - 5)}`)}. עַכְשָׁו חַבְּרִי!`;
+            return {
+                question: 'מַנְעוּל הַכֶּפֶל נִנְעַל! מָה הַקּוֹד?',
+                math: [a, '×', b, '=', BLANK],
+                spoken: `כַּמָּה זֶה ${a} כָּפוּל ${b}?`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>טְרִיק הַכֶּפֶל:</strong><br>${hint}`,
+                solution: b <= 5
+                    ? [L(`${Array(b).fill(a).join(' + ')} = ${ans}`)]
+                    : [L(`${a} × 5 = ${a * 5}`), L(`${a} × ${b - 5} = ${a * (b - 5)}`), L(`${a * 5} + ${a * (b - 5)} = ${ans}`)]
+            };
+        }
+        if (lv === 2) {
+            const a = randInt(2, 9), q = randInt(2, 9), p = a * q;
+            return {
+                question: 'חַלְּקִי אֶת הָאֵנֶרְגִּיָה שָׁוֶה בְּשָׁוֶה בֵּין הַמְּגִנִּים:',
+                math: [p, ':', a, '=', BLANK],
+                spoken: `כַּמָּה זֶה ${p} לְחַלֵּק לְ-${a}?`,
+                type: 'input', answer: q,
+                hint: `💡 <strong>חִלּוּק הוּא כֶּפֶל הָפוּךְ:</strong><br>אֵיזֶה מִסְפָּר כָּפוּל ${L(a)} שָׁוֶה ${L(p)}? ${L(`${a} × ? = ${p}`)}`,
+                solution: [`חִלּוּק הוּא כֶּפֶל הָפוּךְ:`, L(`${a} × ${q} = ${p}`), `לָכֵן ${L(`${p} : ${a} = ${q}`)}`]
+            };
+        }
+        const t = randInt(1, 4), o = randInt(1, 9), m = randInt(3, 9), n = t * 10 + o;
+        return {
+            question: 'הַמָּנוֹעַ צָרִיךְ כֶּפֶל גָּדוֹל! פַּרְקִי וְכִפְלִי:',
+            math: [n, '×', m, '=', BLANK],
+            spoken: `כַּמָּה זֶה ${n} כָּפוּל ${m}?`,
+            type: 'input', answer: n * m,
+            hint: `💡 <strong>חֹק הַפִּלּוּג:</strong><br>פַּרְקִי אֶת ${L(n)} לְ-${L(`${t * 10} + ${o}`)}.<br>
+                   קֹדֶם ${L(`${t * 10} × ${m}`)}, אַחַר כָּךְ ${L(`${o} × ${m}`)}, וּבַסּוֹף חַבְּרִי.`,
+            solution: [L(`${t * 10} × ${m} = ${t * 10 * m}`), L(`${o} × ${m} = ${o * m}`), L(`${t * 10 * m} + ${o * m} = ${n * m}`)]
+        };
+    },
+
+    equations(lv) {
+        if (lv === 1) {
+            if (Math.random() < 0.5) {
+                const a = randInt(12, 68), b = randInt(11, 29), c = a + b;
+                return {
+                    question: 'אֵיזֶה מִסְפָּר חָסֵר כְּדֵי לְאַזֵּן אֶת הַמֹּאזְנַיִם?',
+                    math: [BLANK, '+', b, '=', c],
+                    spoken: `כַּמָּה וְעוֹד ${b} שָׁוֶה ${c}?`,
+                    type: 'input', answer: a,
+                    hint: `💡 <strong>מְחַפְּשִׂים מְחֻבָּר חָסֵר?</strong><br>מְחַסְּרִים: ${L(`${c} − ${b}`)}.`,
+                    solution: [L(`${c} − ${b} = ${a}`), `✅ בְּדִיקָה: ${L(`${a} + ${b} = ${c}`)}`]
+                };
+            }
+            const f = randInt(2, 9), m = randInt(2, 9);
+            return {
+                question: 'שִׂימִי לֵב לְסִימַן הַכֶּפֶל! אֵיזֶה מִסְפָּר יַפְעִיל אֶת הַמָּנוֹעַ?',
+                math: [BLANK, '×', m, '=', f * m],
+                spoken: `כַּמָּה כָּפוּל ${m} שָׁוֶה ${f * m}?`,
+                type: 'input', answer: f,
+                hint: `💡 <strong>עִצְרִי וּבִדְקִי סִימָן:</strong><br>הַסִּימָן הוּא <strong>כֶּפֶל (×)</strong>! כַּמָּה פְּעָמִים ${L(m)} נִכְנָס בְּתוֹךְ ${L(f * m)}?`,
+                solution: [L(`${f * m} : ${m} = ${f}`), `✅ בְּדִיקָה: ${L(`${f} × ${m} = ${f * m}`)}`]
+            };
+        }
+        if (lv === 2) {
+            if (Math.random() < 0.5) {
+                const base = randInt(6, 9) * 100 + 60, sub1 = randInt(3, 4) * 100 + 50, diff = pick([100, 200]);
+                const left2 = base - diff, ans = sub1 - diff;
+                return {
+                    question: 'אַזְּנִי אֶת מֹאזְנֵי הַלֵּיזֶר בְּלִי לְחַשֵּׁב אֶת כָּל הַתַּרְגִּיל! אֵיזֶה מִסְפָּר חָסֵר?',
+                    math: [base, '−', sub1, '=', left2, '−', BLANK],
+                    spoken: `אַזְּנִי אֶת הַמִּשְׁוָאָה: ${base} פָּחוֹת ${sub1} שָׁוֶה לְ-${left2} פָּחוֹת כַּמָּה?`,
+                    type: 'input', answer: ans,
+                    hint: `💡 <strong>סוֹד הַמֹּאזְנַיִם:</strong><br>הַמִּסְפָּר הָרִאשׁוֹן יָרַד מִ-${L(base)} לְ-${L(left2)} (יָרַד בְּ-${diff}).<br>
+                           כְּדֵי שֶׁהַתּוֹצָאָה תִּשָּׁאֵר שָׁוָה, גַּם אֶת ${L(sub1)} צָרִיךְ לְהַקְטִין בְּ-${diff}!`,
+                    solution: [L(`${sub1} − ${diff} = ${ans}`), `✅ בְּדִיקָה: ${L(`${base} − ${sub1} = ${base - sub1}`)} וְגַם ${L(`${left2} − ${ans} = ${left2 - ans}`)}`]
+                };
+            }
+            const factor = randInt(3, 8), mult = pick([20, 30, 50]), prod = factor * mult;
+            return {
+                question: 'שִׂימִי לֵב לְסִימַן הַכֶּפֶל! אֵיזֶה מִסְפָּר יַפְעִיל אֶת הַמָּנוֹעַ?',
+                math: [BLANK, '×', mult, '=', prod],
+                spoken: `כַּמָּה כָּפוּל ${mult} שָׁוֶה ${prod}? שִׂימִי לֵב שֶׁזֶּה כֶּפֶל וְלֹא חִבּוּר.`,
+                type: 'input', answer: factor,
+                hint: `💡 <strong>טְרִיק הָעֲשָׂרוֹת:</strong><br>${L(mult)} זֶה ${L(`${mult / 10} × 10`)}. אָז כַּמָּה פְּעָמִים ${L(mult)} נִכְנָס בְּ-${L(prod)}?<br>נַסִּי: ${L(`${prod / 10} : ${mult / 10}`)}`,
+                solution: [L(`${prod / 10} : ${mult / 10} = ${factor}`), `✅ בְּדִיקָה: ${L(`${factor} × ${mult} = ${prod}`)}`]
+            };
+        }
+        if (Math.random() < 0.5) {
+            const a = randInt(10, 25), b = randInt(2, 4), c = randInt(12, 20), d = randInt(4, 9);
+            const ans = a + b * (c - d);
+            return {
+                question: 'אַתְּ אַלּוּפָה בְּסֵדֶר פְּעֻלּוֹת חֶשְׁבּוֹן! פִּתְרִי אֶת הַקּוֹד:',
+                math: [a, '+', b, '×', `(${c} − ${d})`, '=', BLANK],
+                spoken: `פִּתְרִי לְפִי סֵדֶר פְּעֻלּוֹת חֶשְׁבּוֹן: ${a} וְעוֹד ${b} כָּפוּל, בְּסוֹגְרַיִם, ${c} פָּחוֹת ${d}.`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>שְׁלַבֵּי הַפְּעֻלָּה:</strong><br>1. קֹדֶם סוֹגְרַיִם.<br>2. אַחַר כָּךְ כֶּפֶל.<br>3. בַּסּוֹף חִבּוּר.`,
+                solution: [`1. סוֹגְרַיִם: ${L(`${c} − ${d} = ${c - d}`)}`, `2. כֶּפֶל: ${L(`${b} × ${c - d} = ${b * (c - d)}`)}`, `3. חִבּוּר: ${L(`${a} + ${b * (c - d)} = ${ans}`)}`]
+            };
+        }
+        const a = randInt(3, 9), b = randInt(4, 9), c = randInt(5, a * b - 2);
+        return {
+            question: 'מָה בָּא קֹדֶם? פִּתְרִי לְפִי סֵדֶר פְּעֻלּוֹת:',
+            math: [a, '×', b, '−', c, '=', BLANK],
+            spoken: `${a} כָּפוּל ${b} פָּחוֹת ${c}. כַּמָּה זֶה?`,
+            type: 'input', answer: a * b - c,
+            hint: `💡 <strong>כֶּפֶל לִפְנֵי חִסּוּר!</strong><br>קֹדֶם חַשְּׁבִי ${L(`${a} × ${b}`)}, וְרַק אַחַר כָּךְ הוֹרִידִי ${L(c)}.`,
+            solution: [`1. כֶּפֶל: ${L(`${a} × ${b} = ${a * b}`)}`, `2. חִסּוּר: ${L(`${a * b} − ${c} = ${a * b - c}`)}`]
+        };
+    },
+
+    geometry(lv) {
+        if (lv === 1) {
+            const kinds = [
+                { name: 'זָוִית חַדָּה (קְטַנָּה מִ-90°)', deg: randInt(25, 70) },
+                { name: 'זָוִית יְשָׁרָה (בְּדִיּוּק 90°)', deg: 90 },
+                { name: 'זָוִית קֵהָה (גְּדוֹלָה מִ-90°)', deg: randInt(115, 160) }
+            ];
+            const chosen = pick(kinds);
+            return {
+                question: 'מַכַּ"ם הַלֵּיזֶר קָלַט קֶרֶן אֵנֶרְגִּיָה. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
+                svg: angleSvg(chosen.deg),
+                spoken: 'הִתְבּוֹנְנִי בַּשִּׂרְטוּט. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
+                type: 'options', options: kinds.map(k => k.name), answer: chosen.name,
+                hint: `💡 <strong>בְּדִיקַת פִּנַּת הַדַּף:</strong><br>דַּמְיְנִי פִּנָּה שֶׁל מַחְבֶּרֶת (זָוִית יְשָׁרָה). הַאִם הַפֶּתַח כָּאן קָטָן יוֹתֵר, שָׁוֶה, אוֹ רָחָב יוֹתֵר מִפִּנָּה?`,
+                solution: [`הַזָּוִית בַּשִּׂרְטוּט הִיא בְּעֵרֶךְ ${L(chosen.deg + '°')}.`, `לָכֵן זוֹ ${chosen.name}.`]
+            };
+        }
+        if (lv === 2) {
+            const len = randInt(11, 18), wid = randInt(6, 10), ans = (len + wid) * 2;
+            return {
+                question: `עָלֵינוּ לְהַקִּיף אֶת בְּסִיס הַמִּפְקָדָה בְּחוֹמַת לֵיזֶר מַלְבְּנִית בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. מַהוּ הַהֶקֵּף?`,
+                svg: rectSvg(len, wid, false),
+                spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. מָה הַהֶקֵּף שֶׁל כָּל אַרְבַּע הַצְּלָעוֹת?`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>טִיפּ לְחִשּׁוּב הֶקֵּף:</strong><br>חַבְּרִי קֹדֶם צֵלָע אֲרֻכָּה וְצֵלָע קְצָרָה: ${L(`${len} + ${wid}`)}.<br>וְעַכְשָׁו פָּשׁוּט תַּכְפִּילִי פִּי 2!`,
+                solution: [L(`${len} + ${wid} = ${len + wid}`), L(`${len + wid} × 2 = ${ans}`)]
+            };
+        }
+        if (Math.random() < 0.5) {
+            const len = randInt(4, 9), wid = randInt(3, 7);
+            return {
+                question: `חֲדַר הַבַּקָּרָה הוּא מַלְבֵּן בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. כַּמָּה מֶטְרִים רְבוּעִים שָׁטִיחַ צָרִיךְ? (שֶׁטַח)`,
+                svg: rectSvg(len, wid, true),
+                spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} וּבְרֹחַב ${wid}. מָה הַשֶּׁטַח שֶׁלּוֹ?`,
+                type: 'input', answer: len * wid,
+                hint: `💡 <strong>שֶׁטַח = אֹרֶךְ × רֹחַב</strong><br>בַּשִּׂרְטוּט יֵשׁ ${L(wid)} שׁוּרוֹת, וּבְכָל שׁוּרָה ${L(len)} רִבּוּעִים.`,
+                solution: [L(`${len} × ${wid} = ${len * wid}`), `הַשֶּׁטַח הוּא ${L(len * wid)} מֶטְרִים רְבוּעִים.`]
+            };
+        }
+        const len = randInt(8, 15), wid = randInt(3, 7), P = 2 * (len + wid);
+        return {
+            question: `הֶקֵּף הַמַּלְבֵּן הוּא ${P} מֶטֶר, וְאָרְכּוֹ ${len} מֶטֶר. מָה הָרֹחַב שֶׁלּוֹ?`,
+            svg: rectSvg(len, '?', false),
+            spoken: `הֶקֵּף הַמַּלְבֵּן הוּא ${P} מֶטֶר וְאָרְכּוֹ ${len} מֶטֶר. מָה הָרֹחַב?`,
+            type: 'input', answer: wid,
+            hint: `💡 <strong>חֲצִי הֶקֵּף = אֹרֶךְ + רֹחַב</strong><br>חַשְּׁבִי ${L(`${P} : 2`)}, וְאָז הוֹרִידִי אֶת הָאֹרֶךְ.`,
+            solution: [L(`${P} : 2 = ${P / 2}`), L(`${P / 2} − ${len} = ${wid}`)]
+        };
+    },
+
+    wordProblems(lv) {
+        if (lv === 1) {
+            const target = randInt(6, 9) * 100 + 50, have = randInt(3, 5) * 100 + 20, ans = target - have;
+            const th = Math.floor(target / 100) * 100, hh = Math.floor(have / 100) * 100;
+            return {
+                question: `כְּדֵי לִבְנוֹת מָגֵן אֵנֶרְגִּיָה דְּרוּשִׁים ${target} מַטְבְּעוֹת זָהָב. אָסַפְנוּ כְּבָר ${have}. כַּמָּה מַטְבְּעוֹת עוֹד חֲסֵרִים?`,
+                spoken: `דְּרוּשִׁים ${target} מַטְבְּעוֹת, וְיֵשׁ לָנוּ ${have}. כַּמָּה חֲסֵרִים?`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>חִשּׁוּב קַל בָּרֹאשׁ:</strong><br>הַשְׁלִימִי קֹדֶם אֶת הָעֲשָׂרוֹת: מִ-20 לְ-50 חֲסֵרִים <strong>30</strong>.<br>עַכְשָׁו אֶת הַמֵּאוֹת: מִ-${L(hh)} לְ-${L(th)}.`,
+                solution: [`עֲשָׂרוֹת: מִ-20 לְ-50 = ${L(30)}`, `מֵאוֹת: ${L(`${th} − ${hh} = ${th - hh}`)}`, L(`${th - hh} + 30 = ${ans}`)]
+            };
+        }
+        if (lv === 2) {
+            const rows1 = randInt(3, 6), rows2 = randInt(4, 7), perRow = randInt(6, 9);
+            const correct = `${perRow} × ${rows1} + ${perRow} × ${rows2}`;
+            return {
+                question: `בְּמַחְסַן הַחֲלָלִית יֵשׁ ${rows1} אַרְגָּזִים כְּחֻלִּים וְ-${rows2} אַרְגָּזִים סְגֻלִּים. בְּכָל אַרְגָּז יֵשׁ ${perRow} סוֹלְלוֹת. אֵיזֶה תַּרְגִּיל מְחַשֵּׁב אֶת כָּל הַסּוֹלְלוֹת יַחַד?`,
+                spoken: `יֵשׁ ${rows1} אַרְגָּזִים כְּחֻלִּים וְ-${rows2} אַרְגָּזִים סְגֻלִּים, וּבְכָל אַרְגָּז ${perRow} סוֹלְלוֹת. אֵיזֶה תַּרְגִּיל מַתְאִים?`,
+                type: 'options', optionsLtr: true,
+                options: [correct, `(${perRow} + ${rows1}) × (${perRow} + ${rows2})`, `${rows1} × ${rows2} × ${perRow}`, `${rows1} + ${rows2} + ${perRow}`],
+                answer: correct,
+                hint: `💡 <strong>חֹק הַפִּלּוּג בִּפְעֻלָּה:</strong><br>כַּמָּה סוֹלְלוֹת בָּאַרְגָּזִים הַכְּחֻלִּים? (${L(`${perRow} × ${rows1}`)}). וְכַמָּה בַּסְּגֻלִּים? חַבְּרִי אֶת שְׁנֵיהֶם.`,
+                solution: [`כְּחֻלִּים: ${L(`${perRow} × ${rows1} = ${perRow * rows1}`)}`, `סְגֻלִּים: ${L(`${perRow} × ${rows2} = ${perRow * rows2}`)}`, `הַתַּרְגִּיל הַנָּכוֹן: ${L(correct)}`]
+            };
+        }
+        if (Math.random() < 0.5) {
+            const k = randInt(3, 6), per = randInt(6, 9), give = randInt(5, 15), ans = k * per - give;
+            return {
+                question: `לַסּוֹכֶנֶת יֵשׁ ${k} תֵּבוֹת, וּבְכָל תֵּבָה ${per} כּוֹכְבֵי אֵנֶרְגִּיָה. הִיא נָתְנָה ${give} כּוֹכָבִים לְרוֹבּוֹט הַשְּׁמִירָה. כַּמָּה כּוֹכָבִים נִשְׁאֲרוּ לָהּ?`,
+                spoken: `${k} תֵּבוֹת, בְּכָל תֵּבָה ${per} כּוֹכָבִים. הִיא נָתְנָה ${give}. כַּמָּה נִשְׁאֲרוּ?`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>בְּעָיָה דּוּ-שְׁלַבִּית:</strong><br>1. כַּמָּה כּוֹכָבִים הָיוּ בַּהַתְחָלָה? (${L(`${k} × ${per}`)})<br>2. כַּמָּה נִשְׁאֲרוּ אַחֲרֵי שֶׁנָּתְנָה ${L(give)}?`,
+                solution: [`1. ${L(`${k} × ${per} = ${k * per}`)}`, `2. ${L(`${k * per} − ${give} = ${ans}`)}`]
+            };
+        }
+        const n = randInt(2, 5), p = randInt(8, 19), total = n * p;
+        return {
+            question: `בַּחֲנוּת הַחֲלָלִית קָנְתָה הַסּוֹכֶנֶת ${n} מַשְׁקְפֵי לֵיזֶר, כָּל אֶחָד בְּ-${p} שְׁקָלִים. הִיא שִׁלְּמָה בְּשְׁטַר שֶׁל 100 שְׁקָלִים. כַּמָּה עֹדֶף קִבְּלָה?`,
+            spoken: `${n} מַשְׁקָפַיִם, כָּל אֶחָד בְּ-${p} שְׁקָלִים. שִׁלְּמָה 100. כַּמָּה עֹדֶף?`,
+            type: 'input', answer: 100 - total,
+            hint: `💡 <strong>שְׁנֵי שְׁלַבִּים:</strong><br>1. כַּמָּה עָלוּ כָּל הַמַּשְׁקָפַיִם? (${L(`${n} × ${p}`)})<br>2. כַּמָּה חָסֵר מִזֶּה עַד 100?`,
+            solution: [`1. ${L(`${n} × ${p} = ${total}`)}`, `2. ${L(`100 − ${total} = ${100 - total}`)}`]
+        };
+    },
+
+    sequences(lv) {
+        let step, start;
+        if (lv === 1) { step = 10; start = randInt(1, 8) * 100 + randInt(4, 6) * 10 + randInt(1, 9); }
+        else if (lv === 2) { step = 100; start = randInt(3, 6) * 1000 + randInt(3, 8) * 100 + 20; }
+        else {
+            step = pick([25, 50, 250, 1000]);
+            if (step <= 50) start = randInt(2, 9) * 100 + (step === 25 ? randInt(0, 3) * 25 : 0);
+            else if (step === 250) start = randInt(2, 8) * 1000 + 250 * randInt(0, 3);
+            else start = randInt(4, 6) * 1000 + randInt(1, 9) * 100 + randInt(1, 9) * 10;
+        }
+        const up = Math.random() < 0.5 || start - 3 * step <= 0;
+        const terms = [0, 1, 2, 3].map(i => start + (up ? 1 : -1) * step * i);
+        const missing = lv === 3 ? randInt(1, 3) : 3;
+        const ans = terms[missing];
+        const shown = terms.map((t, i) => i === missing ? BLANK : fmt(t));
+        const math = [];
+        shown.forEach((s, i) => { math.push(s); if (i < 3) math.push(','); });
+        return {
+            question: 'הַשְׁלִימִי אֶת הַמִּסְפָּר הֶחָסֵר בְּסִדְרַת הַקְּפִיצוֹת הַשָּׁווֹת:',
+            math,
+            spoken: `הַשְׁלִימִי אֶת הַסִּדְרָה: ${terms.map((t, i) => i === missing ? 'כַּמָּה' : t).join(', ')}.`,
+            type: 'input', answer: ans,
+            hint: `💡 <strong>זַהִי אֶת הַקְּפִיצָה:</strong><br>הִשְׁווִי בֵּין שְׁנֵי מִסְפָּרִים סְמוּכִים. בְּכָל צַעַד הַמִּסְפָּר ${up ? 'גָּדֵל' : 'קָטֵן'} בְּאוֹתָהּ כַּמּוּת.`,
+            solution: [`הַקְּפִיצָה הִיא ${up ? '+' : '−'}${L(step)} בְּכָל צַעַד.`, `${L(terms.map(fmt).join(' , '))}`]
+        };
+    },
+
+    fractions(lv) {
+        if (lv === 1) {
+            const d = pick([2, 3, 4, 5, 6, 8]), n = randInt(1, d - 1);
+            const ans = `${n}/${d}`;
+            const opts = new Set([ans]);
+            [`${d - n}/${d}`, `${n}/${d + 2}`, `${Math.min(n + 1, d)}/${d}`, `${d}/${n}`, `1/${d + 1}`].forEach(o => { if (opts.size < 4) opts.add(o); });
+            return {
+                question: 'אֵיזֶה חֵלֶק מִמַּד הָאֵנֶרְגִּיָה צָבוּעַ?',
+                svg: fracBarSvg(n, d),
+                spoken: 'הִתְבּוֹנְנִי בַּמַּד. אֵיזֶה חֵלֶק מִמֶּנּוּ צָבוּעַ?',
+                type: 'options', optionsLtr: true, options: [...opts], answer: ans,
+                hint: `💡 <strong>מוֹנֶה וּמְכַנֶּה:</strong><br>הַמְּכַנֶּה (לְמַטָּה) = כַּמָּה חֲלָקִים שָׁוִים יֵשׁ בְּסַךְ הַכֹּל.<br>הַמּוֹנֶה (לְמַעְלָה) = כַּמָּה מֵהֶם צְבוּעִים.`,
+                solution: [`יֵשׁ ${L(d)} חֲלָקִים בְּסַךְ הַכֹּל, וּ-${L(n)} מֵהֶם צְבוּעִים.`, `לָכֵן הַשֶּׁבֶר הוּא ${L(ans)}.`]
+            };
+        }
+        if (lv === 2) {
+            let n1, d1, n2, d2;
+            if (Math.random() < 0.6) { d1 = d2 = pick([5, 6, 7, 8, 9, 10]); n1 = randInt(1, d1 - 1); n2 = randInt(1, d1 - 1); }
+            else { n1 = n2 = 1; d1 = randInt(2, 9); do { d2 = randInt(2, 9); } while (d2 === d1); }
+            const v1 = n1 / d1, v2 = n2 / d2;
+            const ans = v1 > v2 ? '>' : v1 < v2 ? '<' : '=';
+            const same = d1 === d2;
+            return {
+                question: 'אֵיזֶה סִימָן מַתְאִים בֵּין שְׁנֵי הַשְּׁבָרִים?',
+                math: [frac(n1, d1), BLANK, frac(n2, d2)],
+                spoken: `אֵיזֶה שֶׁבֶר גָּדוֹל יוֹתֵר: ${n1} חֲלָקִים מִתּוֹךְ ${d1}, אוֹ ${n2} חֲלָקִים מִתּוֹךְ ${d2}?`,
+                type: 'options', optionsLtr: true, options: ['>', '<', '='], answer: ans,
+                hint: same
+                    ? `💡 <strong>אוֹתוֹ מְכַנֶּה:</strong><br>הַחֲלָקִים בְּאוֹתוֹ גֹּדֶל, אָז מִי שֶׁיֵּשׁ לוֹ יוֹתֵר חֲלָקִים (מוֹנֶה גָּדוֹל יוֹתֵר) – גָּדוֹל יוֹתֵר.<br>${fracBarSvg(n1, d1, 200)}<br>${fracBarSvg(n2, d2, 200)}`
+                    : `💡 <strong>אוֹתוֹ מוֹנֶה (1):</strong><br>כְּכָל שֶׁמְּחַלְּקִים פִּיצָה לְיוֹתֵר חֲלָקִים – כָּל חֵלֶק <strong>קָטָן</strong> יוֹתֵר!<br>${fracBarSvg(n1, d1, 200)}<br>${fracBarSvg(n2, d2, 200)}`,
+                solution: [same ? `${L(n1)} חֲלָקִים לְעֻמַּת ${L(n2)} חֲלָקִים מֵאוֹתוֹ גֹּדֶל.` : `חֵלֶק מִתּוֹךְ ${L(d1)} לְעֻמַּת חֵלֶק מִתּוֹךְ ${L(d2)}.`, L(`${n1}/${d1} ${ans} ${n2}/${d2}`)]
+            };
+        }
+        const d = pick([2, 3, 4, 5]), n = randInt(1, d - 1), k = randInt(2, 6), total = d * k;
+        return {
+            question: `בַּמַּחְסָן יֵשׁ ${total} גְּבִישִׁים. ${n}/${d} מֵהֶם כְּחֻלִּים. כַּמָּה גְּבִישִׁים כְּחֻלִּים?`,
+            math: [frac(n, d), 'מִתּוֹךְ', total, '=', BLANK], mathRtl: true,
+            spoken: `${n} חֲלָקִים מִתּוֹךְ ${d}, שֶׁל ${total} גְּבִישִׁים. כַּמָּה זֶה?`,
+            type: 'input', answer: n * k,
+            hint: `💡 <strong>חֵלֶק מִכַּמּוּת:</strong><br>1. חַלְּקִי אֶת ${L(total)} לְ-${L(d)} קְבוּצוֹת שָׁווֹת.<br>2. קְחִי ${L(n)} קְבוּצוֹת.`,
+            solution: [`1. ${L(`${total} : ${d} = ${k}`)} בְּכָל קְבוּצָה`, `2. ${L(`${k} × ${n} = ${n * k}`)}`]
+        };
+    }
+};
+
+// ---------- SVG builders ----------
+function angleSvg(deg) {
+    const vx = deg > 90 ? 120 : 55, vy = 115, len = 95, r = 26;
+    const rad = deg * Math.PI / 180;
+    const x2 = vx + len * Math.cos(rad), y2 = vy - len * Math.sin(rad);
+    const ax = vx + r * Math.cos(rad), ay = vy - r * Math.sin(rad);
+    const marker = deg === 90
+        ? `<path d="M ${vx + 18} ${vy} L ${vx + 18} ${vy - 18} L ${vx} ${vy - 18}" stroke="#f59e0b" stroke-width="2.5" fill="none" class="draw"/>`
+        : `<path d="M ${vx + r} ${vy} A ${r} ${r} 0 0 0 ${ax.toFixed(1)} ${ay.toFixed(1)}" stroke="#f59e0b" stroke-width="2.5" fill="none" class="draw"/>`;
+    return `<svg width="240" height="140" viewBox="0 0 240 140" style="background:#090d16; border-radius:12px; border:1px solid #38bdf8;">
+        <path d="M ${vx} ${vy} L ${vx + 110} ${vy}" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" class="draw"/>
+        <path d="M ${vx} ${vy} L ${x2.toFixed(1)} ${y2.toFixed(1)}" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" class="draw" style="animation-delay:.3s"/>
+        ${marker}
+        <circle cx="${vx}" cy="${vy}" r="5" fill="#f59e0b"/>
+    </svg>`;
+}
+function rectSvg(len, wid, grid) {
+    const W = 240, H = 150;
+    let cols = typeof len === 'number' ? len : 10, rows = typeof wid === 'number' ? wid : 5;
+    const cell = Math.min(160 / cols, 90 / rows);
+    const w = grid ? cell * cols : 150, h = grid ? cell * rows : 80;
+    const x = (W - w) / 2 + 12, y = 30;
+    let lines = '';
+    if (grid) {
+        for (let i = 1; i < cols; i++) lines += `<line x1="${x + i * cell}" y1="${y}" x2="${x + i * cell}" y2="${y + h}" stroke="rgba(56,189,248,.35)"/>`;
+        for (let j = 1; j < rows; j++) lines += `<line x1="${x}" y1="${y + j * cell}" x2="${x + w}" y2="${y + j * cell}" stroke="rgba(56,189,248,.35)"/>`;
+    }
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" stroke-width="3" class="draw" style="stroke-dasharray:800;stroke-dashoffset:800"/>
+        ${lines}
+        <text x="${x + w / 2}" y="${y - 8}" fill="#f8fafc" font-size="15" text-anchor="middle">${len} מ'</text>
+        <text x="${x - 8}" y="${y + h / 2 + 5}" fill="#f8fafc" font-size="15" text-anchor="end">${wid} מ'</text>
+    </svg>`;
+}
+function fracBarSvg(n, d, width = 260) {
+    const pad = 6, w = (width - pad * 2) / d, h = 44;
+    let cells = '';
+    for (let i = 0; i < d; i++) {
+        const filled = i < n;
+        cells += `<rect x="${pad + i * w}" y="8" width="${w - 4}" height="${h}" rx="6"
+            fill="${filled ? 'url(#fg)' : 'rgba(255,255,255,.06)'}" stroke="#38bdf8" stroke-width="2"
+            class="${filled ? 'fill-in' : ''}" style="transform-origin: 50% 100%; transform-box: fill-box; animation-delay:${i * 0.12}s"/>`;
+    }
+    return `<svg width="${width}" height="${h + 16}" viewBox="0 0 ${width} ${h + 16}" style="direction:ltr">
+        <defs><linearGradient id="fg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+        ${cells}
+    </svg>`;
+}
+
+// =====================================================================
+//  Adaptive topic selection
+// =====================================================================
+function pickNextTopic() {
+    const keys = Object.keys(topics).filter(k => k !== lastTopic);
+    const weights = keys.map(k => {
+        const t = state.topics[k];
+        // weaker topics and recently-hard topics come up more, but every topic stays in rotation
+        return 1 + (100 - t.mastery) / 30 + Math.min(3, t.struggle);
+    });
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < keys.length; i++) { if (r < weights[i]) return keys[i]; r -= weights[i]; }
+    return keys[0];
+}
+
+// =====================================================================
+//  Game flow
+// =====================================================================
+document.querySelectorAll('.mood-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    mood = btn.dataset.mood;
+    const replies = {
+        calm: 'מְצֻיָּן! יוֹצְאוֹת לַדֶּרֶךְ. 🚀',
+        some: 'זֶה בְּסֵדֶר גָּמוּר. נַתְחִיל בִּמְשִׂימוֹת קַלּוֹת לְחִמּוּם. 💙',
+        very: 'תּוֹדָה שֶׁסִּפַּרְתְּ לִי. נַתְחִיל בִּנְשִׁימַת כֹּחַ יַחַד, וְאַחַר כָּךְ מְשִׂימוֹת קַלּוֹת. 💙'
+    };
+    $('mood-reply').textContent = replies[mood];
+    sfx.click();
+}));
+
+function startGame(withSound = true) {
+    soundEnabled = withSound;
+    updateMuteBtn();
+    const nm = $('hero-name').value.trim();
+    if (nm) state.name = nm;
+    $('hero-title').textContent = state.name ? `סוֹכֶנֶת ${state.name}` : 'סוֹכֶנֶת הָעָל';
+    calmQuestions = mood === 'calm' ? 0 : (mood === 'some' ? 3 : 5);
+    saveState();
+    try { startVid.pause(); } catch (e) {}
+    $('start-screen').style.display = 'none';
+    $('game-screen').style.display = 'block';
+    updateShield(false);
+    renderSkillsBar();
+    $('calm-count').textContent = state.calmBreaths;
+    const first = (state.storySolved >= TOTAL_STORY && !state.finished) ? showFinale : loadQuestionUI;
+    if (mood === 'very') openBreathingModal(() => first());
+    else first();
+}
+
+function nextMission() {
+    if (state.storySolved > 0 && state.storySolved % MISSIONS_PER_CHAPTER === 0 && pendingCutscene) {
+        pendingCutscene = false;
+        const idx = state.storySolved / MISSIONS_PER_CHAPTER - 1;
+        if (idx >= storyChapters.length - 1) return showFinale();
+        const ch = chapterTransitions[idx];
+        return showCutscene(ch.title, ch.desc, ['energyBeam', 'victory']);
+    }
+    loadQuestionUI();
+}
+let pendingCutscene = false;
+
+function showCutscene(title, desc, slices, extraHtml = '', buttonsHtml = null) {
+    scenePlayer.stop();
+    $('cutscene-title').textContent = title;
+    $('cutscene-desc').textContent = desc;
+    $('cutscene-extra').innerHTML = extraHtml;
+    $('cutscene-buttons').innerHTML = buttonsHtml || '<button class="btn-primary" onclick="closeCutscene()">🚀 הַמְשִׁיכִי לַמְּשִׂימָה הַבָּאָה</button>';
+    const ov = $('cutscene-overlay');
+    ov.classList.remove('show'); void ov.offsetWidth; ov.classList.add('show');
+    cutPlayer.play(slices);
+    sfx.whoosh();
+    setTimeout(() => burst(window.innerWidth / 2, window.innerHeight * 0.35, 90, 11), 400);
+    speak(title + '. ' + desc);
+}
+function closeCutscene() {
+    $('cutscene-overlay').classList.remove('show');
+    cutPlayer.stop();
+    loadQuestionUI();
+}
+
+function showFinale() {
+    state.finished = true;
+    saveState();
+    const mastered = Object.keys(topics).map(k => `<div class="stat"><b>${levelStars(levelOf(k))}</b>${topics[k].icon} ${topics[k].name}</div>`).join('');
+    const extra = `<div class="certificate">
+            <h3>🏅 תְּעוּדַת גִּבּוֹרַת-עָל</h3>
+            <div>${state.name ? `<strong>${escapeHtml(state.name)}</strong> – ` : ''}הִצַּלְתְּ אֶת הָעוֹלָם בְּחֶשְׁבּוֹן, בְּאֹמֶץ וּבְנַחַת!</div>
+            <div class="stat-row">
+                <div class="stat"><b>${state.totalSolved}</b>מְשִׂימוֹת</div>
+                <div class="stat"><b>${state.calmBreaths}</b>נְשִׁימוֹת כֹּחַ</div>
+            </div>
+            <div class="stat-row">${mastered}</div>
+        </div>`;
+    const buttons = `<button class="btn-primary" onclick="closeCutscene()">🌟 הַמְשִׁיכִי בְּאִמּוּן חוֹפְשִׁי</button>
+                     <button class="btn-soft" onclick="newAdventure()">🔄 הַרְפַּתְקָה חֲדָשָׁה</button>`;
+    showCutscene('🌍 הָעוֹלָם נִצַּל!', 'בִּזְכוּת הַחֲשִׁיבָה הָרְגוּעָה וְהָאַמִּיצָה שֶׁלָּךְ, כִּפַּת הַמָּגֵן מְגִנָּה עַל כָּל הָעִיר. אַתְּ גִּבּוֹרַת-עָל אֲמִתִּית!', ['energyBeam', 'victory'], extra, buttons);
+    rainConfetti(5);
+    sfx.levelUp();
+}
+function newAdventure() {
+    state.storySolved = 0; state.finished = false; saveState();
+    updateShield(false);
+    closeCutscene();
+}
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function swapMission() {
+    if (answered) return;
+    sfx.click();
+    showToast('🔁 אֵין בְּעָיָה – הִנֵּה מְשִׂימָה אַחֶרֶת!', 1800);
+    loadQuestionUI();
+}
+
+let typeTimer = null;
+function typewrite(el, text) {
+    clearInterval(typeTimer);
+    const segs = (window.Intl && Intl.Segmenter)
+        ? Array.from(new Intl.Segmenter('he', { granularity: 'grapheme' }).segment(text), s => s.segment)
+        : (text.match(/[^֑-ׇ][֑-ׇ]*/gu) || [text]);
+    if (reduceMotion) { el.textContent = text; return; }
+    let i = 0;
+    el.innerHTML = '<span></span><span class="caret"></span>';
+    const span = el.firstChild;
+    typeTimer = setInterval(() => {
+        span.textContent += segs[i++] || '';
+        if (i >= segs.length) { clearInterval(typeTimer); setTimeout(() => { const c = el.querySelector('.caret'); if (c) c.remove(); }, 1200); }
+    }, 28);
+}
+
+function loadQuestionUI() {
+    answered = false; attempts = 0; usedHint = false;
+    ['feedback-box', 'hint-box', 'solution-box'].forEach(id => { $(id).style.display = 'none'; $(id).innerHTML = ''; });
+    $('submit-btn').style.display = 'inline-block';
+    $('swap-btn').style.display = 'inline-block';
+
+    currentTopic = pickNextTopic();
+    lastTopic = currentTopic;
+    let lv = levelOf(currentTopic);
+    if (calmQuestions > 0) { lv = Math.max(1, lv - 1); calmQuestions--; }
+    currentMission = generators[currentTopic](lv);
+    currentMission.level = lv;
+
+    const chapterIdx = Math.min(storyChapters.length - 1, Math.floor(state.storySolved / MISSIONS_PER_CHAPTER));
+    const chapter = state.finished ? storyChapters[randInt(0, storyChapters.length - 1)] : storyChapters[chapterIdx];
+    scenePlayer.play(['mission'], chapter.filter);
+    typewrite($('story-text'), chapter.text);
+    updateChapterBadge();
+
+    $('topic-badge').innerHTML = `${topics[currentTopic].icon} ${topics[currentTopic].name} <span class="level-stars">${levelStars(lv)}</span>`;
+    $('question-text').textContent = currentMission.question;
+
+    const card = $('question-card');
+    card.classList.remove('question-card'); void card.offsetWidth; card.classList.add('question-card');
+
+    const visual = $('visual-area');
+    visual.innerHTML = '';
+    if (currentMission.math) {
+        const box = document.createElement('div');
+        box.className = 'math-display' + (currentMission.mathRtl ? ' rtl' : '');
+        box.innerHTML = currentMission.math.map((t, i) => `<span class="tok" style="animation-delay:${0.15 + i * 0.08}s">${t}</span>`).join('');
+        visual.appendChild(box);
+    } else if (currentMission.svg) {
+        visual.innerHTML = currentMission.svg;
+    }
+
+    const answerArea = $('answer-area');
+    answerArea.innerHTML = '';
+    if (currentMission.type === 'input') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.autocomplete = 'off';
+        input.className = 'answer-input';
+        input.id = 'user-input';
+        input.placeholder = '?';
+        input.onkeydown = e => { if (e.key === 'Enter') checkAnswer(); };
+        answerArea.appendChild(input);
+        setTimeout(() => input.focus({ preventScroll: true }), 150);
+    } else {
+        $('submit-btn').style.display = 'none';
+        const grid = document.createElement('div');
+        grid.className = 'options-grid';
+        shuffle(currentMission.options).forEach((opt, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn' + (currentMission.optionsLtr ? ' ltr-opt' : '');
+            btn.style.animationDelay = `${0.2 + i * 0.08}s`;
+            btn.textContent = opt;
+            btn.onclick = () => checkAnswer(opt, btn);
+            grid.appendChild(btn);
+        });
+        answerArea.appendChild(grid);
+    }
+    renderSkillsBar();
+    setTimeout(speakCurrentMission, 250);
+}
+
+const praises = [
+    'בּוּל פְּגִיעָה! הַמַּחְשָׁבָה הָרְגוּעָה שֶׁלָּךְ הִצִּילָה אֶת הַמַּצָּב! 🌟',
+    'מַדְהִימָה! פִּתְרוֹן מְדֻיָּק שֶׁל גִּבּוֹרַת-עָל אֲמִתִּית! ⚡',
+    'אֵיזֶה יֹפִי! הַמֹּחַ שֶׁלָּךְ חַד כְּמוֹ לֵיזֶר! 🎯',
+    'כָּל הַכָּבוֹד! רָאִית כַּמָּה זֶה קַל כְּשֶׁעוֹבְדִים צַעַד אַחֲרֵי צַעַד? 🚀'
+];
+const afterMistakePraises = [
+    'יֵשׁ! לֹא וִתַּרְתְּ – וְזֶה הַכֹּחַ הֲכִי חָזָק שֶׁל גִּבּוֹרָה! 💪',
+    'נָכוֹן! בָּדַקְתְּ שׁוּב בְּנַחַת וּמָצָאת. כָּכָה עוֹבְדוֹת סוֹכְנוֹת-עָל! 🌟'
+];
+const hintPraise = `מְצֻיָּן! שִׁמּוּשׁ בַּגַּאדְגֶ'ט הוּא בְּדִיּוּק מָה שֶׁגִּבּוֹרוֹת חֲכָמוֹת עוֹשׂוֹת! 💡`;
+const gentleMsgs = [
+    'כִּמְעַט! לֹא קָרָה כְּלוּם, אֲפִלּוּ גִּבּוֹרוֹת-עָל בּוֹדְקוֹת פַּעֲמַיִם. 💙',
+    'טָעוּת הִיא חֵלֶק מֵהָאִמּוּן שֶׁל כָּל גִּבּוֹרָה. נְנַסֶּה שׁוּב בְּנַחַת. 💙',
+    'הַמֹּחַ שֶׁלָּךְ גָּדֵל דַּוְקָא כְּשֶׁמִּתְאַמְּצִים. בּוֹאִי נִבְדֹּק עוֹד פַּעַם. 💙'
+];
+
+function checkAnswer(selected = null, btnEl = null) {
+    if (answered || !currentMission) return;
+    let userVal = selected;
+    const inputEl = $('user-input');
+    if (currentMission.type === 'input') {
+        const raw = (inputEl ? inputEl.value : '').replace(/[,\s]/g, '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+        if (raw === '') { if (inputEl) { inputEl.classList.remove('wobble'); void inputEl.offsetWidth; inputEl.classList.add('wobble'); } return; }
+        userVal = Number(raw);
+        if (Number.isNaN(userVal)) userVal = raw;
+    }
+    const fb = $('feedback-box');
+    fb.style.display = 'block';
+
+    if (userVal === currentMission.answer) onCorrect(fb, inputEl, btnEl);
+    else onWrong(fb, inputEl, btnEl);
+}
+
+async function onCorrect(fb, inputEl, btnEl) {
+    answered = true;
+    consecutiveMistakes = 0;
+    const t = state.topics[currentTopic];
+    const oldLevel = levelOf(currentTopic);
+    const gain = attempts === 0 ? (usedHint ? 10 : 15) : 7;
+    t.mastery = Math.min(100, t.mastery + gain);
+    t.solved++;
+    t.struggle = Math.max(0, t.struggle - 1);
+    state.totalSolved++;
+    if (!state.finished && state.storySolved < TOTAL_STORY) {
+        state.storySolved++;
+        if (state.storySolved % MISSIONS_PER_CHAPTER === 0) pendingCutscene = true;
+    }
+    saveState();
+
+    $('submit-btn').style.display = 'none';
+    $('swap-btn').style.display = 'none';
+    if (inputEl) { inputEl.classList.add('correct'); inputEl.readOnly = true; }
+    if (btnEl) btnEl.classList.add('correct');
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+
+    const msg = attempts > 0 ? pick(afterMistakePraises) : usedHint ? hintPraise : pick(praises);
+    fb.className = 'feedback success';
+    const nextLabel = pendingCutscene ? '🎬 לַפֶּרֶק הַבָּא' : '➡️ לַמְּשִׂימָה הַבָּאָה';
+    fb.innerHTML = `${msg}<br><br><button class="btn-primary glow" id="next-btn" onclick="nextMission()">${nextLabel}</button>`;
+    sfx.correct();
+    speak(msg);
+
+    scenePlayer.play(['energyBeam', 'victory'], 'none');
+    const avatar = $('avatar');
+    avatar.classList.remove('bounce'); void avatar.offsetWidth; avatar.classList.add('bounce');
+    const container = $('main-container');
+    container.classList.remove('celebrate-pulse'); void container.offsetWidth; container.classList.add('celebrate-pulse');
+    const src = inputEl || btnEl || $('answer-area');
+    const r = src.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height / 2, 55, 9);
+    await energyBeam(src, $('shield-bar'));
+    updateShield(true);
+
+    const newLevel = levelOf(currentTopic);
+    renderSkillsBar(newLevel > oldLevel ? currentTopic : null);
+    if (newLevel > oldLevel) {
+        sfx.levelUp();
+        showToast(`⭐ עָלִית לְרָמָה ${newLevel} בְּ${topics[currentTopic].name}!`);
+    }
+    const nb = $('next-btn');
+    if (nb) nb.focus({ preventScroll: true });
+}
+
+function onWrong(fb, inputEl, btnEl) {
+    attempts++;
+    consecutiveMistakes++;
+    const t = state.topics[currentTopic];
+    if (attempts === 1) { t.mastery = Math.max(0, t.mastery - 5); t.struggle = Math.min(4, t.struggle + 1); }
+    saveState();
+    sfx.soft();
+    if (inputEl) { inputEl.classList.remove('wobble'); void inputEl.offsetWidth; inputEl.classList.add('wobble'); inputEl.select(); }
+    if (btnEl) { btnEl.classList.add('tried'); btnEl.disabled = true; }
+    fb.className = 'feedback gentle';
+
+    if (attempts === 1) {
+        const m = pick(gentleMsgs);
+        fb.innerHTML = `${m}<br>אֶפְשָׁר לִפְתֹּחַ אֶת <strong>גַּאדְגֶ'ט הָעֶזְרָה 💡</strong> אוֹ לְנַסּוֹת שׁוּב.`;
+        speak(m);
+    } else if (attempts === 2) {
+        showHint(true);
+        fb.innerHTML = 'הִנֵּה רֶמֶז קָטָן שֶׁיַּעֲזֹר לָךְ – הוּא כְּבָר פָּתוּחַ לְמַטָּה. 💡<br>אֵין שׁוּם לַחַץ, קְחִי אֶת הַזְּמַן.';
+        speak('הִנֵּה רֶמֶז קָטָן שֶׁיַּעֲזֹר לָךְ. אֵין שׁוּם לַחַץ.');
+        calmQuestions = Math.max(calmQuestions, 1);
+    } else {
+        showSolution();
+        fb.innerHTML = 'בּוֹאִי נִפְתֹּר אֶת זֶה יַחַד, צַעַד אַחַר צַעַד. 🤝<br>קִרְאִי אֶת הַפִּתְרוֹן וְהַקְלִידִי אֶת הַתְּשׁוּבָה – כָּכָה לוֹמְדִים!';
+        speak('בּוֹאִי נִפְתֹּר אֶת זֶה יַחַד, צַעַד אַחַר צַעַד.');
+        calmQuestions = Math.max(calmQuestions, 2);
+    }
+    if (consecutiveMistakes >= 3) {
+        consecutiveMistakes = 0;
+        setTimeout(() => openBreathingModal(), 1800);
+    }
+}
+
+function showHint(force = false) {
+    const hb = $('hint-box');
+    if (!currentMission) return;
+    if (!force && hb.style.display === 'block') { hb.style.display = 'none'; return; }
+    hb.innerHTML = currentMission.hint;
+    hb.style.display = 'block';
+    hb.style.animation = 'none'; void hb.offsetWidth; hb.style.animation = '';
+    if (!answered) usedHint = true;
+    speak(currentMission.hint.replace(/<svg[\s\S]*?<\/svg>/g, ''));
+}
+function toggleHint() { sfx.click(); showHint(false); }
+function showSolution() {
+    const sb = $('solution-box');
+    const steps = currentMission.solution || [];
+    sb.innerHTML = '<strong>📖 פּוֹתְרוֹת יַחַד:</strong>' +
+        steps.map((s, i) => `<div class="step" style="animation-delay:${0.3 + i * 0.6}s">${s}</div>`).join('');
+    sb.style.display = 'block';
+}
+
+function updateShield(animate) {
+    const pct = Math.round(100 * state.storySolved / TOTAL_STORY);
+    $('shield-fill').style.width = `${pct}%`;
+    const el = $('shield-percent');
+    const from = parseInt(el.textContent) || 0;
+    if (animate && !reduceMotion) {
+        const t0 = performance.now();
+        (function step(now) {
+            const k = Math.min(1, (now - t0) / 900);
+            el.textContent = Math.round(from + (pct - from) * k) + '%';
+            if (k < 1) requestAnimationFrame(step);
+        })(t0);
+        const bar = $('shield-bar');
+        bar.classList.remove('flash'); void bar.offsetWidth; bar.classList.add('flash');
+    } else el.textContent = pct + '%';
+    const chapter = Math.floor(state.storySolved / MISSIONS_PER_CHAPTER);
+    let rank = ranks[0].name;
+    ranks.forEach(r => { if (chapter >= r.min) rank = r.name; });
+    if (state.finished) rank = ranks[ranks.length - 1].name;
+    $('rank-text').textContent = `דַּרְגָּה: ${rank}`;
+    updateChapterBadge();
+}
+function updateChapterBadge() {
+    if (state.finished) {
+        $('chapter-label').textContent = 'אִמּוּן חוֹפְשִׁי 🌟';
+        $('chapter-dots').innerHTML = '';
+        return;
+    }
+    const chapter = Math.min(storyChapters.length, Math.floor(state.storySolved / MISSIONS_PER_CHAPTER) + 1);
+    const inCh = pendingCutscene ? MISSIONS_PER_CHAPTER : state.storySolved % MISSIONS_PER_CHAPTER;
+    const shownChapter = pendingCutscene ? chapter - 1 : chapter;
+    $('chapter-label').textContent = `פֶּרֶק ${shownChapter} מִתּוֹךְ ${storyChapters.length}`;
+    const dots = $('chapter-dots');
+    const prev = dots.querySelectorAll('.dot.on').length;
+    dots.innerHTML = '';
+    for (let i = 0; i < MISSIONS_PER_CHAPTER; i++) {
+        const d = document.createElement('span');
+        d.className = 'dot' + (i < inCh ? ' on' : '');
+        if (i < prev && i < inCh) d.style.animation = 'none';
+        dots.appendChild(d);
+    }
+}
+
+function renderSkillsBar(levelUpTopic = null) {
+    const bar = $('skills-bar');
+    bar.innerHTML = '';
+    for (const k in topics) {
+        const t = state.topics[k];
+        const pill = document.createElement('div');
+        pill.className = 'skill-pill' + (k === currentTopic ? ' active' : '') + (k === levelUpTopic ? ' up' : '');
+        pill.innerHTML = `<div class="skill-head"><span>${topics[k].icon} ${topics[k].name}</span><span class="level-stars">${levelStars(levelOf(k))}</span></div>
+            <div class="mini-bar"><div class="mini-fill" style="width:0%"></div></div>`;
+        bar.appendChild(pill);
+        requestAnimationFrame(() => requestAnimationFrame(() => { pill.querySelector('.mini-fill').style.width = `${t.mastery}%`; }));
+    }
+}
+
+// =====================================================================
+//  Breathing modal: inhale 4s · hold 2s · exhale 5s, 3 rounds
+// =====================================================================
+const affirmations = [
+    'אֲנִי לוֹמֶדֶת, וְזֶה בְּסֵדֶר לִטְעוֹת.',
+    'אֲנִי יְכוֹלָה לַעֲצֹר וְלַחְשֹׁב בְּנַחַת.',
+    'כָּל צַעַד קָטָן הוּא נִצָּחוֹן.',
+    'אֲנִי חֲזָקָה יוֹתֵר מִמָּה שֶׁאֲנִי חוֹשֶׁבֶת.',
+    'הַמִּסְפָּרִים לֹא בּוֹרְחִים – יֵשׁ לִי אֶת כָּל הַזְּמַן.'
+];
+let breathTimers = [];
+let breathRounds = 0;
+let breathOnClose = null;
+function openBreathingModal(onClose = null) {
+    breathOnClose = onClose;
+    breathRounds = 0;
+    $('breathing-modal').classList.add('show');
+    $('breath-done').classList.remove('glow');
+    $('affirmation').textContent = pick(affirmations);
+    speak('בּוֹאִי נִקַּח נְשִׁימָה עֲמֻקָּה פְּנִימָה, וּנְשַׁחְרֵר לְאַט הַחוּצָה.');
+    runBreathCycle();
+}
+function runBreathCycle() {
+    const circle = $('breath-circle'), txt = $('breath-text');
+    const phases = [
+        { t: 'שְׁאִיפָה...', d: 4000, big: true },
+        { t: 'מַחְזִיקָה...', d: 2000, big: true },
+        { t: 'נְשִׁיפָה אִטִּית...', d: 5000, big: false }
+    ];
+    let delay = 0;
+    phases.forEach(p => {
+        breathTimers.push(setTimeout(() => {
+            txt.textContent = p.t;
+            circle.style.transitionDuration = `${p.d}ms`;
+            circle.classList.toggle('big', p.big);
+        }, delay));
+        delay += p.d;
+    });
+    $('breath-count').textContent = `סִבּוּב ${breathRounds + 1} מִתּוֹךְ 3`;
+    breathTimers.push(setTimeout(() => {
+        breathRounds++;
+        $('affirmation').style.opacity = 0;
+        setTimeout(() => { $('affirmation').textContent = pick(affirmations); $('affirmation').style.opacity = 1; }, 600);
+        if (breathRounds >= 3) {
+            $('breath-count').textContent = '✨ כָּל הַכָּבוֹד! הָאֵנֶרְגִּיָה טְעוּנָה.';
+            $('breath-done').classList.add('glow');
+        }
+        runBreathCycle();
+    }, delay));
+}
+function closeBreathingModal() {
+    breathTimers.forEach(clearTimeout);
+    breathTimers = [];
+    $('breathing-modal').classList.remove('show');
+    $('breath-circle').classList.remove('big');
+    if (breathRounds >= 1) {
+        state.calmBreaths++;
+        saveState();
+        $('calm-count').textContent = state.calmBreaths;
+        showToast('🧘‍♀️ אֵנֶרְגִּיַּת שַׁלְוָה נִטְעֲנָה!');
+    }
+    consecutiveMistakes = 0;
+    const cb = breathOnClose; breathOnClose = null;
+    if (cb) cb();
+    else if (soundEnabled && currentMission && !answered) setTimeout(speakCurrentMission, 300);
+}
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('breathing-modal').classList.contains('show')) closeBreathingModal();
+});
+
+// =====================================================================
+//  Boot
+// =====================================================================
+(function boot() {
+    const has = loadState();
+    if (state.name) $('hero-name').value = state.name;
+    if (has) {
+        $('resume-area').style.display = 'block';
+        $('start-btn').innerHTML = `🚀 הַמְשִׁיכִי מֵהַמָּקוֹם שֶׁעָצַרְתְּ (${Math.round(100 * state.storySolved / TOTAL_STORY)}%)`;
+    }
+})();
+</script>
+</body>
+</html>
