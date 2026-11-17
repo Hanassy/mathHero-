@@ -410,6 +410,24 @@
     .nb-cell.pending::after { content: ""; position: absolute; left: -1px; right: -1px; bottom: -2px; height: 3px; background: #f59e0b; }
     .nb-cell.x::before { content: ""; position: absolute; inset: 12%; z-index: 1; pointer-events: none;
         background: linear-gradient(to top right, transparent 45%, #dc2626 46% 54%, transparent 55%); animation: fadeIn .25s; }
+    .nb-grid { position: relative; }
+    #nb-svg { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 3; }
+    .nb-geo { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; margin-top: 8px; padding: 8px; border-radius: 14px;
+        background: rgba(96,165,250,.08); border: 1px dashed rgba(147,197,253,.45); }
+    .nb-geo .geo-title { color: #93c5fd; font-size: .85rem; font-weight: bold; margin-inline-end: 4px; }
+    .nb-geo .nb-mode { font-size: .95rem; padding: 6px 10px; }
+    .nb-geo .nb-mode .gi { font-size: 1.15rem; display: inline-block; transition: transform .3s; }
+    .nb-geo .nb-mode.on .gi { transform: scale(1.25) rotate(-8deg); }
+    .nb-color { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); cursor: pointer; transition: transform .2s, box-shadow .2s; padding: 0; }
+    .nb-color.on { transform: scale(1.25); border-color: #fff; box-shadow: 0 0 10px currentColor; }
+    .gnew { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gdraw .8s ease-out forwards; }
+    @keyframes gdraw { to { stroke-dashoffset: 0; } }
+    .gpop { animation: gpop .45s .55s cubic-bezier(.3,1.8,.5,1) both; transform-box: fill-box; transform-origin: 50% 50%; }
+    @keyframes gpop { from { opacity: 0; transform: scale(.2); } }
+    .gfade { animation: gfade .35s ease forwards; transform-box: fill-box; transform-origin: 50% 50%; }
+    @keyframes gfade { to { opacity: 0; transform: scale(1.3); } }
+    .g-label { font-family: 'Comic Sans MS', 'Segoe UI', Arial, sans-serif; font-weight: bold; paint-order: stroke; stroke: #fdfdf8; stroke-width: .14px; stroke-linejoin: round; }
+    .g-cursor { animation: blink 1s infinite; }
     .nb-tools, .nb-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
     .nb-mode, .nb-act { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); color: #e2e8f0; border-radius: 12px; padding: 7px 11px; cursor: pointer; font-size: .9rem; transition: all .2s; }
     .nb-mode.on { background: linear-gradient(135deg, #2563eb, #7c3aed); border-color: #93c5fd; box-shadow: 0 0 14px rgba(96,165,250,.6); transform: translateY(-2px); }
@@ -656,6 +674,17 @@
             <button class="nb-mode" data-mode="small">🔸 סִפְרָה קְטַנָּה</button>
             <button class="nb-mode" data-mode="line">➖ קַו חִשּׁוּב</button>
             <button class="nb-mode" data-mode="cross">╱ מְחִיקָה</button>
+        </div>
+        <div class="nb-geo" id="nb-geo">
+            <span class="geo-title">📐 גֵּאוֹמֶטְרְיָה:</span>
+            <button class="nb-mode" data-mode="g-rect" title="מלבן"><span class="gi">▭</span> מַלְבֵּן</button>
+            <button class="nb-mode" data-mode="g-tri" title="משולש"><span class="gi">△</span> מְשֻׁלָּשׁ</button>
+            <button class="nb-mode" data-mode="g-circle" title="עיגול"><span class="gi">◯</span> עִגּוּל</button>
+            <button class="nb-mode" data-mode="g-angle" title="זווית"><span class="gi">∠</span> זָוִית</button>
+            <button class="nb-mode" data-mode="g-seg" title="קו ישר"><span class="gi">╱</span> קַו יָשָׁר</button>
+            <button class="nb-mode" data-mode="g-erase" title="מחיקת צורה"><span class="gi">🧽</span> מְחִיקַת צוּרָה</button>
+            <button class="nb-act" onclick="gUndo()" title="ביטול הצורה האחרונה">↩️ בִּטּוּל</button>
+            <span id="nb-colors"></span>
         </div>
         <div class="nb-hint-line" id="nb-hint-line"></div>
         <div class="nb-keypad" id="nb-keypad"></div>
@@ -2367,7 +2396,7 @@ document.querySelectorAll('#level-switch .ls-opt').forEach(btn => btn.addEventLi
 //  Notebook – a squared-paper grid to write on (no calculating)
 // =====================================================================
 const NB_ROWS = 12, NB_COLS = 14, NB_KEY = 'mathHeroNotebook_v1';
-let nb = { cells: [], history: [] };
+let nb = { cells: [], shapes: [], history: [] };
 let nbSel = { r: 0, c: 1 }, nbRowStart = 1, nbMode = 'write', nbDrag = null;
 const NB_OPS = ['+', '−', '×', ':', '=', '(', ')', ',', '/', '?'];
 function nbBlank() { return Array.from({ length: NB_ROWS }, () => Array.from({ length: NB_COLS }, () => ({ v: '', s: '', u: false, x: false }))); }
@@ -2384,12 +2413,12 @@ function nbUnpack(list) {
 function nbLoad() {
     try {
         const d = JSON.parse(localStorage.getItem(NB_KEY) || 'null');
-        if (d) { nb.cells = nbUnpack(d.current); nb.history = d.history || []; return; }
+        if (d) { nb.cells = nbUnpack(d.current); nb.shapes = d.shapes || []; nb.history = d.history || []; return; }
     } catch (e) {}
     nb.cells = nbBlank();
 }
-function nbSave() { try { localStorage.setItem(NB_KEY, JSON.stringify({ current: nbPack(nb.cells), history: nb.history })); } catch (e) {} }
-function nbIsEmpty() { return nbPack(nb.cells).length === 0; }
+function nbSave() { try { localStorage.setItem(NB_KEY, JSON.stringify({ current: nbPack(nb.cells), shapes: nb.shapes, history: nb.history })); } catch (e) {} }
+function nbIsEmpty() { return nbPack(nb.cells).length === 0 && !nb.shapes.length; }
 
 function nbBuild() {
     const grid = $('nb-grid');
@@ -2412,7 +2441,8 @@ function nbBuild() {
         return `<button class="nb-key ${cls}" data-k="${k}" title="${title}">${k}</button>`;
     }).join('');
     kp.addEventListener('click', e => { const b = e.target.closest('.nb-key'); if (b) nbKey(b.dataset.k); });
-    document.querySelectorAll('#nb-tools .nb-mode').forEach(b => b.addEventListener('click', () => nbSetMode(b.dataset.mode)));
+    document.querySelectorAll('#notebook .nb-mode').forEach(b => b.addEventListener('click', () => nbSetMode(b.dataset.mode)));
+    gInit();
 }
 function nbCellEl(r, c) { return $('nb-grid').children[r * NB_COLS + c]; }
 function nbRenderCell(r, c, pop = false) {
@@ -2436,11 +2466,18 @@ const NB_MODE_TIPS = {
     write: 'הַקִּישִׁי עַל מִשְׁבֶּצֶת וְכִתְבִי בַּמַּקְלֶדֶת. הַסַּמָּן זָז יְמִינָה לְבַד.',
     small: 'סִפְרָה קְטַנָּה לְמַעְלָה בַּמִּשְׁבֶּצֶת – בִּשְׁבִיל פְּרִיטָה וְהַעֲבָרָה.',
     line: 'גִּרְרִי אֶצְבַּע עַל מִשְׁבְּצוֹת בְּשׁוּרָה כְּדֵי לְמַתֵּחַ קַו חִשּׁוּב (הַקָּשָׁה שְׁנִיָּה מוֹחֶקֶת).',
-    cross: 'הַקִּישִׁי עַל סִפְרָה כְּדֵי לִמְחֹק אוֹתָהּ בְּקַו (כְּמוֹ בִּפְרִיטָה).'
+    cross: 'הַקִּישִׁי עַל סִפְרָה כְּדֵי לִמְחֹק אוֹתָהּ בְּקַו (כְּמוֹ בִּפְרִיטָה).',
+    'g-rect': '▭ גִּרְרִי מִפִּנָּה לְפִנָּה. הַמִּסְפָּרִים מַרְאִים כַּמָּה מִשְׁבְּצוֹת אֹרֶךְ וְרֹחַב.',
+    'g-tri': '△ הַקִּישִׁי 3 נְקֻדּוֹת – כָּל הַקָּשָׁה הִיא קָדְקֹד.',
+    'g-circle': '◯ גִּרְרִי מֵהַמֶּרְכָּז הַחוּצָה – הַמֶּרְחָק הוּא הָרַדְיוּס.',
+    'g-angle': '∠ הַקִּישִׁי קֹדֶם עַל הַקָּדְקֹד, וְאַחַר כָּךְ עַל קְצֵה כָּל אַחַת מִשְּׁתֵּי הַקְּרָנַיִם.',
+    'g-seg': '╱ גִּרְרִי מִנְּקֻדָּה לִנְקֻדָּה כְּדֵי לְמַתֵּחַ קַו יָשָׁר.',
+    'g-erase': '🧽 הַקִּישִׁי עַל צוּרָה כְּדֵי לִמְחֹק אוֹתָהּ.'
 };
 function nbSetMode(m) {
     nbMode = m;
-    document.querySelectorAll('#nb-tools .nb-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    document.querySelectorAll('#notebook .nb-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    if (gDraft) { gDraft = null; gRender(); }
     $('nb-hint-line').textContent = NB_MODE_TIPS[m];
     nbRenderSel();
     sfx.click();
@@ -2451,6 +2488,7 @@ function nbCellFromEvent(e) {
     return cell ? { r: +cell.dataset.r, c: +cell.dataset.c } : null;
 }
 function nbPointerDown(e) {
+    if (nbMode.startsWith('g-')) { e.preventDefault(); return gDown(e); }
     const p = nbCellFromEvent(e);
     if (!p) return;
     e.preventDefault();
@@ -2468,6 +2506,7 @@ function nbPointerDown(e) {
     }
 }
 function nbPointerMove(e) {
+    if (nbMode.startsWith('g-')) return gMove(e);
     if (!nbDrag) return;
     const p = nbCellFromEvent(e);
     if (p && p.r === nbDrag.r && p.c !== nbDrag.c1) { nbDrag.c1 = p.c; nbShowPending(); }
@@ -2478,7 +2517,8 @@ function nbShowPending() {
     const [a, b] = [Math.min(nbDrag.c0, nbDrag.c1), Math.max(nbDrag.c0, nbDrag.c1)];
     for (let c = a; c <= b; c++) nbCellEl(nbDrag.r, c).classList.add('pending');
 }
-function nbPointerUp() {
+function nbPointerUp(e) {
+    if (nbMode.startsWith('g-')) return gUp(e);
     if (!nbDrag) return;
     const [a, b] = [Math.min(nbDrag.c0, nbDrag.c1), Math.max(nbDrag.c0, nbDrag.c1)];
     for (let c = a; c <= b; c++) {
@@ -2533,6 +2573,209 @@ function nbKeydown(e) {
     if (e.key === 'Escape') return closeNotebook();
     if (/^\d$/.test(k) || NB_OPS.includes(k) || ['⌫', '🗑', '←', '→', '↑', '↓', '↵', '␣'].includes(k)) { e.preventDefault(); nbKey(k); }
 }
+// ---------- Notebook geometry: shapes snap to grid corners ----------
+const G_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c'];
+const G_ICON = { rect: '▭', tri: '△', circle: '◯', angle: '∠', seg: '╱' };
+let gColor = G_COLORS[0], gDraft = null, gNewIndex = -1;
+function gInit() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'nb-svg';
+    svg.setAttribute('viewBox', `0 0 ${NB_COLS} ${NB_ROWS}`);
+    svg.innerHTML = '<g id="nb-shapes"></g><g id="nb-draft"></g>';
+    $('nb-grid').appendChild(svg);
+    $('nb-colors').innerHTML = G_COLORS.map(c => `<button class="nb-color${c === gColor ? ' on' : ''}" data-c="${c}" style="background:${c}; color:${c}" title="צבע"></button>`).join(' ');
+    $('nb-colors').addEventListener('click', e => {
+        const b = e.target.closest('.nb-color'); if (!b) return;
+        gColor = b.dataset.c;
+        document.querySelectorAll('.nb-color').forEach(x => x.classList.toggle('on', x === b));
+        if (!nbMode.startsWith('g-') || nbMode === 'g-erase') nbSetMode('g-rect'); else sfx.click();
+    });
+    window.addEventListener('resize', gLayout);
+}
+function gMetrics() {
+    const f = nbCellEl(0, 0).getBoundingClientRect(), l = nbCellEl(NB_ROWS - 1, NB_COLS - 1).getBoundingClientRect();
+    return { x0: f.left, y0: f.top, sx: (l.left - f.left) / (NB_COLS - 1), sy: (l.top - f.top) / (NB_ROWS - 1) };
+}
+function gLayout() {
+    const svg = $('nb-svg'); if (!svg) return;
+    const grid = $('nb-grid'), g = grid.getBoundingClientRect(), m = gMetrics();
+    svg.style.left = (m.x0 - g.left - grid.clientLeft) + 'px';
+    svg.style.top = (m.y0 - g.top - grid.clientTop) + 'px';
+    svg.style.width = (m.sx * NB_COLS) + 'px';
+    svg.style.height = (m.sy * NB_ROWS) + 'px';
+}
+function gPoint(e) {
+    const m = gMetrics();
+    return {
+        x: Math.max(0, Math.min(NB_COLS, Math.round((e.clientX - m.x0) / m.sx))),
+        y: Math.max(0, Math.min(NB_ROWS, Math.round((e.clientY - m.y0) / m.sy)))
+    };
+}
+const gEq = (a, b) => a.x === b.x && a.y === b.y;
+const gDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const gNum = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+function gDown(e) {
+    gLayout();
+    const p = gPoint(e);
+    if (nbMode === 'g-erase') return gErase(e);
+    const t = nbMode.slice(2);
+    if (t === 'tri' || t === 'angle') {
+        if (!gDraft || gDraft.t !== t) gDraft = { t, p: [], cur: p };
+        if (gDraft.p.length && gEq(gDraft.p[gDraft.p.length - 1], p)) return;
+        gDraft.p.push(p); gDraft.cur = p;
+        sfx.pen();
+        if (gDraft.p.length === 3) return gCommit();
+        return gRender();
+    }
+    gDraft = { t, p: [p], cur: p, drag: true };
+    gRender();
+}
+function gMove(e) {
+    if (!gDraft) return;
+    const p = gPoint(e);
+    if (gEq(p, gDraft.cur)) return;
+    gDraft.cur = p;
+    gRender();
+}
+function gUp(e) {
+    if (!gDraft || !gDraft.drag) return;
+    const a = gDraft.p[0], b = gDraft.cur;
+    const ok = gDraft.t === 'rect' ? (a.x !== b.x && a.y !== b.y) : !gEq(a, b);
+    if (!ok) { gDraft = null; gRender(); return; }
+    gDraft.p.push(b);
+    gCommit();
+}
+function gCommit() {
+    const shape = { t: gDraft.t, p: gDraft.p.map(q => [q.x, q.y]), c: gColor };
+    gDraft = null;
+    if (shape.t === 'tri') {
+        const [a, b, c] = shape.p;
+        if ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) === 0) { showToast('📐 שָׁלוֹשׁ הַנְּקֻדּוֹת עַל קַו אֶחָד – נַסִּי שׁוּב', 1800); gRender(); return; }
+    }
+    nb.shapes.push(shape);
+    gNewIndex = nb.shapes.length - 1;
+    gRender();
+    gNewIndex = -1;
+    nbSave();
+    [523, 784].forEach((f, i) => tone(f, i * 0.1, 0.3, 'triangle', 0.05));
+}
+function gUndo() {
+    if (gDraft) { gDraft = null; gRender(); return; }
+    if (!nb.shapes.length) return;
+    const g = $('nb-shapes').lastElementChild;
+    sfx.click();
+    const done = () => { nb.shapes.pop(); gRender(); nbSave(); };
+    if (g && !reduceMotion) { g.classList.add('gfade'); setTimeout(done, 330); } else done();
+}
+function gSegDist(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+    const t = L ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)) : 0;
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+function gShapeDist(s, p) {
+    const P = s.p.map(([x, y]) => ({ x, y }));
+    if (s.t === 'circle') return Math.abs(gDist(P[0], p) - gDist(P[0], P[1]));
+    let segs;
+    if (s.t === 'rect') {
+        const [a, b] = P, c1 = { x: a.x, y: b.y }, c2 = { x: b.x, y: a.y };
+        segs = [[a, c2], [c2, b], [b, c1], [c1, a]];
+    } else if (s.t === 'tri') segs = [[P[0], P[1]], [P[1], P[2]], [P[2], P[0]]];
+    else if (s.t === 'angle') segs = [[P[0], P[1]], [P[0], P[2]]];
+    else segs = [[P[0], P[1]]];
+    return Math.min(...segs.map(([a, b]) => gSegDist(p, a, b)));
+}
+function gErase(e) {
+    const m = gMetrics();
+    const p = { x: (e.clientX - m.x0) / m.sx, y: (e.clientY - m.y0) / m.sy };
+    let best = -1, bd = 0.6;
+    nb.shapes.forEach((s, i) => { const d = gShapeDist(s, p); if (d < bd) { bd = d; best = i; } });
+    if (best < 0) return;
+    const g = $('nb-shapes').children[best];
+    sfx.click();
+    const done = () => { nb.shapes.splice(best, 1); gRender(); nbSave(); };
+    if (g && !reduceMotion) { g.classList.add('gfade'); setTimeout(done, 330); } else done();
+}
+function gLabel(x, y, text, color, size = 0.48) {
+    return `<text class="g-label gpop" x="${x.toFixed(2)}" y="${y.toFixed(2)}" fill="${color}" font-size="${size}" text-anchor="middle" dominant-baseline="middle">${text}</text>`;
+}
+function gDot(x, y, color, r = 0.12) { return `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" class="gpop"/>`; }
+function gAngleInfo(V, A, B) {
+    const ax = A[0] - V[0], ay = A[1] - V[1], bx = B[0] - V[0], by = B[1] - V[1];
+    const deg = Math.round(Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by))))) * 180 / Math.PI);
+    const kind = deg === 90 ? 'יְשָׁרָה' : deg < 90 ? 'חַדָּה' : deg === 180 ? 'שְׁטוּחָה' : 'קֵהָה';
+    return { deg, kind, ax, ay, bx, by, cross: ax * by - ay * bx };
+}
+function gShapeSvg(s, isNew, draft) {
+    const c = s.c || gColor, cls = isNew ? 'gnew' : '', sw = 0.09;
+    const dash = draft ? 'stroke-dasharray="0.25 0.18"' : '';
+    const stroke = `stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" ${dash}`;
+    const pl = isNew ? 'pathLength="1"' : '';
+    const P = s.p;
+    let out = '';
+    if (s.t === 'rect') {
+        const [a, b] = P, x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]), w = Math.abs(a[0] - b[0]), h = Math.abs(a[1] - b[1]);
+        out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" fill-opacity="0.08" ${stroke} ${pl} class="${cls}"/>`;
+        if (w && h) out += gLabel(x + w / 2, y - 0.35, w, c) + gLabel(x - 0.35, y + h / 2, h, c);
+        if (w && h && !draft && w === h) out += gLabel(x + w / 2, y + h / 2, 'רִבּוּעַ', c, 0.42);
+    } else if (s.t === 'circle') {
+        const [o, q] = P, r = Math.hypot(q[0] - o[0], q[1] - o[1]);
+        out += `<circle cx="${o[0]}" cy="${o[1]}" r="${r}" fill="${c}" fill-opacity="0.07" ${stroke} ${pl} class="${cls}"/>`;
+        out += `<line x1="${o[0]}" y1="${o[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${c}" stroke-width="0.05" stroke-dasharray="0.15 0.12"/>` + gDot(o[0], o[1], c);
+        if (r) out += gLabel((o[0] + q[0]) / 2, (o[1] + q[1]) / 2 - 0.3, gNum(Math.round(r * 10) / 10), c, 0.42);
+    } else if (s.t === 'seg') {
+        const [a, b] = P;
+        out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" ${stroke} ${pl} class="${cls}"/>` + gDot(a[0], a[1], c) + gDot(b[0], b[1], c);
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if ((a[0] === b[0] || a[1] === b[1]) && len) {
+            const nx = a[1] === b[1] ? 0 : -0.35, ny = a[1] === b[1] ? -0.35 : 0;
+            out += gLabel((a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny, gNum(len), c, 0.42);
+        }
+    } else if (s.t === 'tri') {
+        if (P.length === 3) out += `<polygon points="${P.map(q => q.join(',')).join(' ')}" fill="${c}" fill-opacity="0.08" ${stroke} ${pl} class="${cls}"/>`;
+        else out += `<polyline points="${P.map(q => q.join(',')).join(' ')}" fill="none" ${stroke}/>`;
+        P.forEach(q => { out += gDot(q[0], q[1], c); });
+    } else if (s.t === 'angle') {
+        const V = P[0];
+        P.slice(1).forEach(q => { out += `<line x1="${V[0]}" y1="${V[1]}" x2="${q[0]}" y2="${q[1]}" ${stroke} ${pl} class="${cls}"/>`; });
+        out += gDot(V[0], V[1], c, 0.14);
+        if (P.length === 3 && !gEq({ x: V[0], y: V[1] }, { x: P[1][0], y: P[1][1] }) && !gEq({ x: V[0], y: V[1] }, { x: P[2][0], y: P[2][1] })) {
+            const A = P[1], B = P[2], info = gAngleInfo(V, A, B);
+            const la = Math.hypot(info.ax, info.ay), lb = Math.hypot(info.bx, info.by);
+            const ua = [info.ax / la, info.ay / la], ub = [info.bx / lb, info.by / lb];
+            const r = Math.min(0.9, la * 0.6, lb * 0.6);
+            if (info.deg === 90) {
+                const q = 0.45;
+                out += `<path d="M ${V[0] + ua[0] * q} ${V[1] + ua[1] * q} L ${V[0] + (ua[0] + ub[0]) * q} ${V[1] + (ua[1] + ub[1]) * q} L ${V[0] + ub[0] * q} ${V[1] + ub[1] * q}" fill="none" stroke="${c}" stroke-width="0.06" class="gpop"/>`;
+            } else if (info.deg < 180) {
+                out += `<path d="M ${V[0] + ua[0] * r} ${V[1] + ua[1] * r} A ${r} ${r} 0 0 ${info.cross > 0 ? 1 : 0} ${V[0] + ub[0] * r} ${V[1] + ub[1] * r}" fill="${c}" fill-opacity="0.15" stroke="${c}" stroke-width="0.06" class="gpop"/>`;
+            }
+            let bx = ua[0] + ub[0], by = ua[1] + ub[1];
+            const bl = Math.hypot(bx, by);
+            if (bl < 0.01) { bx = -ua[1]; by = ua[0]; } else { bx /= bl; by /= bl; }
+            const d = r + 0.75;
+            out += gLabel(V[0] + bx * d, V[1] + by * d - 0.22, `${info.deg}°`, c, 0.46);
+            out += gLabel(V[0] + bx * d, V[1] + by * d + 0.28, info.kind, c, 0.38);
+        }
+    }
+    return `<g>${out}</g>`;
+}
+function gRender() {
+    const sh = $('nb-shapes'); if (!sh) return;
+    sh.innerHTML = nb.shapes.map((s, i) => gShapeSvg(s, i === gNewIndex, false)).join('');
+    let d = '';
+    if (gDraft) {
+        const pts = gDraft.p.map(q => [q.x, q.y]);
+        const cur = [gDraft.cur.x, gDraft.cur.y];
+        if (gDraft.drag) d = gShapeSvg({ t: gDraft.t, p: [pts[0], cur], c: gColor }, false, true);
+        else {
+            const all = gEq(gDraft.p[gDraft.p.length - 1], gDraft.cur) ? pts : [...pts, cur];
+            d = all.length > 1 ? gShapeSvg({ t: gDraft.t, p: all, c: gColor }, false, true) : '';
+            pts.forEach(q => { d += `<circle cx="${q[0]}" cy="${q[1]}" r="0.16" fill="${gColor}"/>`; });
+        }
+        d += `<circle class="g-cursor" cx="${cur[0]}" cy="${cur[1]}" r="0.2" fill="none" stroke="${gColor}" stroke-width="0.06"/>`;
+    }
+    $('nb-draft').innerHTML = d;
+}
 let nbBuilt = false;
 function openNotebook() {
     if (!nbBuilt) { nbLoad(); nbBuild(); nbBuilt = true; }
@@ -2542,6 +2785,8 @@ function openNotebook() {
     $('nb-history').style.display = 'none';
     nbSetMode(nbMode);
     nbRenderAll();
+    gRender();
+    setTimeout(gLayout, 650);
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 }
 function closeNotebook() { $('notebook-modal').classList.remove('show'); nbSave(); }
@@ -2606,17 +2851,18 @@ function nbFlip(after) {
 }
 function nbClear() {
     if (nbIsEmpty()) return;
-    nbFlip(() => { nb.cells = nbBlank(); nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); nbSave(); });
+    nbFlip(() => { nb.cells = nbBlank(); nb.shapes = []; gDraft = null; nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); gRender(); nbSave(); });
 }
 function nbSaveNew() {
     if (nbIsEmpty()) { showToast('📓 הַדַּף רֵיק – אֵין מָה לִשְׁמֹר', 1600); return; }
     nb.history.unshift({
         t: Date.now(),
         title: currentMission ? `${topics[currentTopic].icon} ${topics[currentTopic].name}` : '📓 דַּף חִשּׁוּבִים',
-        cells: nbPack(nb.cells)
+        cells: nbPack(nb.cells),
+        shapes: nb.shapes.slice()
     });
     nb.history = nb.history.slice(0, 40);
-    nbFlip(() => { nb.cells = nbBlank(); nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); nbSave(); if ($('nb-history').style.display !== 'none') nbRenderHistory(); });
+    nbFlip(() => { nb.cells = nbBlank(); nb.shapes = []; gDraft = null; nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); gRender(); nbSave(); if ($('nb-history').style.display !== 'none') nbRenderHistory(); });
     showToast('💾 הַדַּף נִשְׁמַר בַּהִיסְטוֹרְיָה!', 1600);
 }
 function nbPreview(packed) {
@@ -2634,7 +2880,7 @@ function nbRenderHistory() {
         const when = `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
         return `<div class="nb-page" style="animation-delay:${i * 0.04}s">
             <div class="row"><strong>${h.title}</strong><span>${when}</span></div>
-            <pre>${nbPreview(h.cells)}</pre>
+            <pre>${nbPreview(h.cells)}</pre>${h.shapes && h.shapes.length ? `<div>📐 ${h.shapes.map(x => G_ICON[x.t]).join(' ')}</div>` : ''}
             <div class="row"><button onclick="nbOpenPage(${i})">📖 פְּתִיחָה</button><button onclick="nbDeletePage(${i})">🗑️</button></div>
         </div>`;
     }).join('');
@@ -2649,9 +2895,9 @@ function nbToggleHistory() {
 function nbOpenPage(i) {
     const page = nb.history[i];
     if (!page) return;
-    if (!nbIsEmpty()) nb.history.unshift({ t: Date.now(), title: '📓 דַּף שֶׁהָיָה פָּתוּחַ', cells: nbPack(nb.cells) });
+    if (!nbIsEmpty()) nb.history.unshift({ t: Date.now(), title: '📓 דַּף שֶׁהָיָה פָּתוּחַ', cells: nbPack(nb.cells), shapes: nb.shapes.slice() });
     nb.history = nb.history.filter(h => h !== page);
-    nbFlip(() => { nb.cells = nbUnpack(page.cells); nbSel = { r: 0, c: 1 }; nbRenderAll(); nbSave(); nbRenderHistory(); });
+    nbFlip(() => { nb.cells = nbUnpack(page.cells); nb.shapes = (page.shapes || []).slice(); gDraft = null; nbSel = { r: 0, c: 1 }; nbRenderAll(); gRender(); nbSave(); nbRenderHistory(); });
 }
 function nbDeletePage(i) {
     nb.history.splice(i, 1);
