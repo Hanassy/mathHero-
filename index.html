@@ -411,7 +411,7 @@
     .nb-cell.x::before { content: ""; position: absolute; inset: 12%; z-index: 1; pointer-events: none;
         background: linear-gradient(to top right, transparent 45%, #dc2626 46% 54%, transparent 55%); animation: fadeIn .25s; }
     .nb-grid { position: relative; }
-    #nb-svg { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 3; }
+    #nb-svg { position: absolute; left: 0; top: 0; width: calc(var(--cs) * 14); height: calc(var(--cs) * 12); pointer-events: none; overflow: visible; z-index: 3; }
     .nb-geo { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; margin-top: 8px; padding: 8px; border-radius: 14px;
         background: rgba(96,165,250,.08); border: 1px dashed rgba(147,197,253,.45); }
     .nb-geo .geo-title { color: #93c5fd; font-size: .85rem; font-weight: bold; margin-inline-end: 4px; }
@@ -420,9 +420,15 @@
     .nb-geo .nb-mode.on .gi { transform: scale(1.25) rotate(-8deg); }
     .nb-color { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); cursor: pointer; transition: transform .2s, box-shadow .2s; padding: 0; }
     .nb-color.on { transform: scale(1.25); border-color: #fff; box-shadow: 0 0 10px currentColor; }
-    .gnew { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gdraw .8s ease-out forwards; }
+    .gnew { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gdraw .8s ease-out var(--gd, 0s) both; }
+    .nb-help { background: linear-gradient(135deg, rgba(245,158,11,.25), rgba(168,85,247,.25)); border: 1px solid #f59e0b; color: #fde68a; font-weight: bold; }
+    .nb-help.glow { animation: helpGlow 1.8s ease-in-out infinite; }
+    @keyframes helpGlow { 50% { box-shadow: 0 0 20px rgba(245,158,11,.85); } }
+    .nb-toggle.on { background: rgba(34,197,94,.2); border-color: #4ade80; color: #bbf7d0; }
+    .g-unit { display: none; }
+    .nb-geo.texting .g-unit { display: inline-block; animation: tokIn .35s cubic-bezier(.3,1.6,.5,1) both; }
     @keyframes gdraw { to { stroke-dashoffset: 0; } }
-    .gpop { animation: gpop .45s .55s cubic-bezier(.3,1.8,.5,1) both; transform-box: fill-box; transform-origin: 50% 50%; }
+    .gpop { animation: gpop .45s calc(.55s + var(--gd, 0s)) cubic-bezier(.3,1.8,.5,1) both; transform-box: fill-box; transform-origin: 50% 50%; }
     @keyframes gpop { from { opacity: 0; transform: scale(.2); } }
     .gfade { animation: gfade .35s ease forwards; transform-box: fill-box; transform-origin: 50% 50%; }
     @keyframes gfade { to { opacity: 0; transform: scale(1.3); } }
@@ -682,9 +688,15 @@
             <button class="nb-mode" data-mode="g-circle" title="עיגול"><span class="gi">◯</span> עִגּוּל</button>
             <button class="nb-mode" data-mode="g-angle" title="זווית"><span class="gi">∠</span> זָוִית</button>
             <button class="nb-mode" data-mode="g-seg" title="קו ישר"><span class="gi">╱</span> קַו יָשָׁר</button>
+            <button class="nb-mode" data-mode="g-text" title="לכתוב מספר על הצורה"><span class="gi">🏷️</span> הַמִּסְפָּר שֶׁלִּי</button>
+            <button class="nb-act g-unit" onclick="gTextKey(' ס&quot;מ')">ס"מ</button>
+            <button class="nb-act g-unit" onclick="gTextKey(&quot; מ'&quot;)">מ'</button>
+            <button class="nb-act g-unit" onclick="gTextKey('°')">°</button>
             <button class="nb-mode" data-mode="g-erase" title="מחיקת צורה"><span class="gi">🧽</span> מְחִיקַת צוּרָה</button>
             <button class="nb-act" onclick="gUndo()" title="ביטול הצורה האחרונה">↩️ בִּטּוּל</button>
             <span id="nb-colors"></span>
+            <button class="nb-act nb-toggle" id="g-measures" onclick="gToggleMeasures()">🔢 מִסְפָּרִים אוֹטוֹמָטִיִּים: כָּבוּי</button>
+            <button class="nb-act nb-help" id="g-help" onclick="gHelpDraw()">💡 שִׂרְטוּט עֶזְרָה</button>
         </div>
         <div class="nb-hint-line" id="nb-hint-line"></div>
         <div class="nb-keypad" id="nb-keypad"></div>
@@ -1591,7 +1603,7 @@ const generators = {
                 const chosen = pick(kinds);
                 return {
                     question: 'מַכַּ"ם הַלֵּיזֶר קָלַט קֶרֶן אֵנֶרְגִּיָה. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
-                    svg: angleSvg(chosen.deg),
+                    svg: angleSvg(chosen.deg), draw: { kind: 'angle', deg: chosen.deg },
                     spoken: 'הִתְבּוֹנְנִי בַּשִּׂרְטוּט. אֵיזוֹ זָוִית נוֹצְרָה כָּאן?',
                     type: 'options', options: kinds.map(k => k.name), answer: chosen.name,
                     hint: `💡 <strong>בְּדִיקַת פִּנַּת הַדַּף:</strong><br>דַּמְיְנִי פִּנָּה שֶׁל מַחְבֶּרֶת (זָוִית יְשָׁרָה). הַאִם הַפֶּתַח כָּאן קָטָן יוֹתֵר, שָׁוֶה, אוֹ רָחָב יוֹתֵר?`,
@@ -1605,7 +1617,7 @@ const generators = {
                 const len = randInt(11, 18), wid = randInt(6, 13), ans = (len + wid) * 2;
                 return {
                     question: `מִסְגֶּרֶת שֶׁל מָסָךְ בַּמִּפְקָדָה הִיא מַלְבֵּן בְּאֹרֶךְ ${len} ס"מ וּבְרֹחַב ${wid} ס"מ. מַהוּ הֶקֵּף הַמִּסְגֶּרֶת?`,
-                    svg: rectSvg(len, wid, false, 'ס"מ'),
+                    svg: rectSvg(len, wid, false, 'ס"מ'), draw: { kind: 'rect', len, wid, unit: 'ס"מ' },
                     spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} וּבְרֹחַב ${wid}. מָה הַהֶקֵּף שֶׁל כָּל אַרְבַּע הַצְּלָעוֹת?`,
                     type: 'input', answer: ans,
                     hint: `💡 <strong>הֶקֵּף = סְכוּם כָּל 4 הַצְּלָעוֹת:</strong><br>חַבְּרִי צֵלָע אֲרֻכָּה וְצֵלָע קְצָרָה: ${L(`${len} + ${wid}`)}, וְתַכְפִּילִי פִּי 2.<br>🔍 בְּדִיקָה: ${L(`${len} + ${len} + ${wid} + ${wid}`)}`,
@@ -1622,7 +1634,7 @@ const generators = {
             const len = randInt(4, 9), wid = randInt(3, 7);
             return {
                 question: `חֲדַר הַבַּקָּרָה הוּא מַלְבֵּן בְּאֹרֶךְ ${len} מֶטֶר וּבְרֹחַב ${wid} מֶטֶר. כַּמָּה מֶטְרִים רְבוּעִים שָׁטִיחַ צָרִיךְ? (שֶׁטַח)`,
-                svg: rectSvg(len, wid, true),
+                svg: rectSvg(len, wid, true), draw: { kind: 'rect', len, wid, unit: "מ'", grid: true },
                 spoken: `מַלְבֵּן בְּאֹרֶךְ ${len} וּבְרֹחַב ${wid}. מָה הַשֶּׁטַח שֶׁלּוֹ?`,
                 type: 'input', answer: len * wid,
                 hint: `💡 <strong>שֶׁטַח = אֹרֶךְ × רֹחַב</strong><br>בַּשִּׂרְטוּט יֵשׁ ${L(wid)} שׁוּרוֹת, וּבְכָל שׁוּרָה ${L(len)} רִבּוּעִים.`,
@@ -1633,7 +1645,7 @@ const generators = {
         const len = randInt(8, 15), wid = randInt(3, 7), P = 2 * (len + wid);
         return {
             question: `הֶקֵּף הַמַּלְבֵּן הוּא ${P} מֶטֶר, וְאָרְכּוֹ ${len} מֶטֶר. מָה הָרֹחַב שֶׁלּוֹ?`,
-            svg: rectSvg(len, '?', false),
+            svg: rectSvg(len, '?', false), draw: { kind: 'rect', len, wid: '?', real: wid, unit: "מ'" },
             spoken: `הֶקֵּף הַמַּלְבֵּן הוּא ${P} מֶטֶר וְאָרְכּוֹ ${len} מֶטֶר. מָה הָרֹחַב?`,
             type: 'input', answer: wid,
             hint: `💡 <strong>חֲצִי הֶקֵּף = אֹרֶךְ + רֹחַב</strong><br>חַשְּׁבִי ${L(`${P} : 2`)}, וְאָז הוֹרִידִי אֶת הָאֹרֶךְ.`,
@@ -1778,7 +1790,7 @@ function triangleQuestion() {
     const s = randInt(5, 12);
     const kinds = [
         { name: 'מְשֻׁלָּשׁ שְׁוֵה-צְלָעוֹת', sides: [s, s, s], why: 'כָּל 3 הַצְּלָעוֹת שָׁווֹת.' },
-        { name: 'מְשֻׁלָּשׁ שְׁוֵה-שׁוֹקַיִם', sides: shuffle([s, s, s + randInt(2, 5)]), why: 'יֵשׁ 2 צְלָעוֹת שָׁווֹת.' },
+        { name: 'מְשֻׁלָּשׁ שְׁוֵה-שׁוֹקַיִם', sides: shuffle([s, s, s + randInt(2, 4)]), why: 'יֵשׁ 2 צְלָעוֹת שָׁווֹת.' },
         { name: 'מְשֻׁלָּשׁ שׁוֹנֵה-צְלָעוֹת', sides: [s, s + 2, s + randInt(3, 6)], why: 'כָּל הַצְּלָעוֹת שׁוֹנוֹת זוֹ מִזּוֹ.' }
     ];
     const k = pick(kinds);
@@ -1786,17 +1798,18 @@ function triangleQuestion() {
     return {
         question: `מְשֻׁלָּשׁ שֶׁאָרְכֵי צַלְעוֹתָיו הֵם ${a} ס"מ, ${b} ס"מ וְ-${c} ס"מ, נִקְרָא:`,
         spoken: `מְשֻׁלָּשׁ שֶׁאָרְכֵי צַלְעוֹתָיו ${a}, ${b} וְ-${c} סֶנְטִימֶטֶר. אֵיךְ קוֹרְאִים לוֹ?`,
-        type: 'options', options: kinds.map(x => x.name), answer: k.name,
+        type: 'options', options: kinds.map(x => x.name), answer: k.name, draw: { kind: 'tri', sides: [a, b, c] },
         hint: `💡 <strong>סוֹפְרִים צְלָעוֹת שָׁווֹת:</strong><br>3 שָׁווֹת → שְׁוֵה-צְלָעוֹת · 2 שָׁווֹת → שְׁוֵה-שׁוֹקַיִם · אַף אַחַת → שׁוֹנֵה-צְלָעוֹת`,
         solution: [k.why, `לָכֵן: ${k.name}`]
     };
 }
 function linesQuestion() {
     const kinds = ['יְשָׁרִים מַקְבִּילִים', 'יְשָׁרִים מְאֻנָּכִים', 'נֶחְתָּכִים, אֲבָל לֹא מְאֻנָּכִים'];
-    const idx = randInt(0, 2);
+    const idx = randInt(0, 2), rot = randInt(0, 179), phi = pick([randInt(30, 60), randInt(120, 150)]);
     return {
+        draw: { kind: 'lines', idx, rot, phi },
         question: 'מָה נָכוֹן לְגַבֵּי שְׁנֵי קַרְנֵי הַלֵּיזֶר בַּשִּׂרְטוּט?',
-        svg: linesSvg(idx),
+        svg: linesSvg(idx, rot, phi),
         spoken: 'הִתְבּוֹנְנִי בִּשְׁנֵי הַקַּוִּים. הֵם מַקְבִּילִים, מְאֻנָּכִים, אוֹ נֶחְתָּכִים וְלֹא מְאֻנָּכִים?',
         type: 'options', options: kinds, answer: kinds[idx],
         hint: `💡 <strong>שְׁתֵּי שְׁאֵלוֹת:</strong><br>1. הַאִם הַקַּוִּים נִפְגָּשִׁים (אוֹ הָיוּ נִפְגָּשִׁים אִם הָיִינוּ מַאֲרִיכִים אוֹתָם)? אִם לֹא – מַקְבִּילִים.<br>2. אִם כֵּן – הַאִם נוֹצֶרֶת פִּנָּה יְשָׁרָה כְּמוֹ פִּנַּת דַּף? גַּם כְּשֶׁהַשִּׂרְטוּט מְסֻבָּב!`,
@@ -1892,9 +1905,8 @@ function dotPlotSvg(counts) {
         <text x="160" y="${base + 38}" fill="#94a3b8" font-size="12" text-anchor="middle" direction="rtl">מִסְפַּר הַמְּשִׂימוֹת</text>
     </svg>`;
 }
-function linesSvg(kind) {
+function linesSvg(kind, rot = randInt(0, 179), phi = 45) {
     const cx = 120, cy = 75, L1 = 90;
-    const rot = randInt(0, 179);
     const seg = (ang, ox = 0, oy = 0, delay = 0) => {
         const r = ang * Math.PI / 180, dx = Math.cos(r) * L1, dy = Math.sin(r) * L1;
         return `<line x1="${(cx + ox - dx).toFixed(1)}" y1="${(cy + oy - dy).toFixed(1)}" x2="${(cx + ox + dx).toFixed(1)}" y2="${(cy + oy + dy).toFixed(1)}" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" class="draw" style="animation-delay:${delay}s"/>`;
@@ -1904,7 +1916,7 @@ function linesSvg(kind) {
         const r = (rot + 90) * Math.PI / 180, off = 26;
         body = seg(rot, Math.cos(r) * off, Math.sin(r) * off) + seg(rot, -Math.cos(r) * off, -Math.sin(r) * off, .3);
     } else if (kind === 1) body = seg(rot) + seg(rot + 90, 0, 0, .3);
-    else body = seg(rot) + seg(rot + pick([randInt(30, 60), randInt(120, 150)]), 0, 0, .3);
+    else body = seg(rot) + seg(rot + phi, 0, 0, .3);
     return `<svg width="240" height="150" viewBox="0 0 240 150" style="background:#090d16; border-radius:12px; border:1px solid #38bdf8;">
         <defs><clipPath id="lc"><rect x="4" y="4" width="232" height="142" rx="10"/></clipPath></defs>
         <g clip-path="url(#lc)">${body}</g>
@@ -2413,11 +2425,11 @@ function nbUnpack(list) {
 function nbLoad() {
     try {
         const d = JSON.parse(localStorage.getItem(NB_KEY) || 'null');
-        if (d) { nb.cells = nbUnpack(d.current); nb.shapes = d.shapes || []; nb.history = d.history || []; return; }
+        if (d) { nb.cells = nbUnpack(d.current); nb.shapes = d.shapes || []; nb.history = d.history || []; nb.showMeasures = !!d.showMeasures; return; }
     } catch (e) {}
     nb.cells = nbBlank();
 }
-function nbSave() { try { localStorage.setItem(NB_KEY, JSON.stringify({ current: nbPack(nb.cells), shapes: nb.shapes, history: nb.history })); } catch (e) {} }
+function nbSave() { try { localStorage.setItem(NB_KEY, JSON.stringify({ current: nbPack(nb.cells), shapes: nb.shapes, history: nb.history, showMeasures: !!nb.showMeasures })); } catch (e) {} }
 function nbIsEmpty() { return nbPack(nb.cells).length === 0 && !nb.shapes.length; }
 
 function nbBuild() {
@@ -2478,6 +2490,8 @@ function nbSetMode(m) {
     nbMode = m;
     document.querySelectorAll('#notebook .nb-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
     if (gDraft) { gDraft = null; gRender(); }
+    if (m !== 'g-text') gFinishText();
+    $('nb-geo').classList.toggle('texting', m === 'g-text');
     $('nb-hint-line').textContent = NB_MODE_TIPS[m];
     nbRenderSel();
     sfx.click();
@@ -2550,6 +2564,7 @@ function nbWrite(ch) {
     nbSave();
 }
 function nbKey(k) {
+    if (nbMode === 'g-text' && gEditing) return gTextKey(k);
     if (/^\d$/.test(k) || NB_OPS.includes(k)) return nbWrite(k);
     const cell = nb.cells[nbSel.r][nbSel.c];
     switch (k) {
@@ -2571,11 +2586,13 @@ function nbKeydown(e) {
     const map = { '-': '−', '*': '×', 'x': '×', 'X': '×', '/': ':', 'Backspace': '⌫', 'Delete': '🗑', 'ArrowLeft': '←', 'ArrowRight': '→', 'ArrowUp': '↑', 'ArrowDown': '↓', 'Enter': '↵', ' ': '␣' };
     const k = map[e.key] || e.key;
     if (e.key === 'Escape') return closeNotebook();
+    if (nbMode === 'g-text' && gEditing && e.key.length === 1 && !e.ctrlKey && !e.metaKey) { e.preventDefault(); return gTextKey(k === '␣' ? ' ' : k); }
     if (/^\d$/.test(k) || NB_OPS.includes(k) || ['⌫', '🗑', '←', '→', '↑', '↓', '↵', '␣'].includes(k)) { e.preventDefault(); nbKey(k); }
 }
 // ---------- Notebook geometry: shapes snap to grid corners ----------
 const G_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c'];
-const G_ICON = { rect: '▭', tri: '△', circle: '◯', angle: '∠', seg: '╱' };
+const G_ICON = { rect: '▭', tri: '△', circle: '◯', angle: '∠', seg: '╱', text: '🏷️' };
+let gEditing = null, gNewFrom = -1;
 let gColor = G_COLORS[0], gDraft = null, gNewIndex = -1;
 function gInit() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2596,14 +2613,7 @@ function gMetrics() {
     const f = nbCellEl(0, 0).getBoundingClientRect(), l = nbCellEl(NB_ROWS - 1, NB_COLS - 1).getBoundingClientRect();
     return { x0: f.left, y0: f.top, sx: (l.left - f.left) / (NB_COLS - 1), sy: (l.top - f.top) / (NB_ROWS - 1) };
 }
-function gLayout() {
-    const svg = $('nb-svg'); if (!svg) return;
-    const grid = $('nb-grid'), g = grid.getBoundingClientRect(), m = gMetrics();
-    svg.style.left = (m.x0 - g.left - grid.clientLeft) + 'px';
-    svg.style.top = (m.y0 - g.top - grid.clientTop) + 'px';
-    svg.style.width = (m.sx * NB_COLS) + 'px';
-    svg.style.height = (m.sy * NB_ROWS) + 'px';
-}
+function gLayout() { /* the SVG layer is sized in CSS from --cs, so it stays exact during animations */ }
 function gPoint(e) {
     const m = gMetrics();
     return {
@@ -2618,6 +2628,7 @@ function gDown(e) {
     gLayout();
     const p = gPoint(e);
     if (nbMode === 'g-erase') return gErase(e);
+    if (nbMode === 'g-text') return gTextDown(e);
     const t = nbMode.slice(2);
     if (t === 'tri' || t === 'angle') {
         if (!gDraft || gDraft.t !== t) gDraft = { t, p: [], cur: p };
@@ -2661,6 +2672,7 @@ function gCommit() {
 }
 function gUndo() {
     if (gDraft) { gDraft = null; gRender(); return; }
+    if (gEditing) gEditing = null;
     if (!nb.shapes.length) return;
     const g = $('nb-shapes').lastElementChild;
     sfx.click();
@@ -2675,6 +2687,7 @@ function gSegDist(p, a, b) {
 function gShapeDist(s, p) {
     const P = s.p.map(([x, y]) => ({ x, y }));
     if (s.t === 'circle') return Math.abs(gDist(P[0], p) - gDist(P[0], P[1]));
+    if (s.t === 'text') return Math.max(0, gDist(P[0], p) - 0.35);
     let segs;
     if (s.t === 'rect') {
         const [a, b] = P, c1 = { x: a.x, y: b.y }, c2 = { x: b.x, y: a.y };
@@ -2715,18 +2728,18 @@ function gShapeSvg(s, isNew, draft) {
     if (s.t === 'rect') {
         const [a, b] = P, x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]), w = Math.abs(a[0] - b[0]), h = Math.abs(a[1] - b[1]);
         out += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" fill-opacity="0.08" ${stroke} ${pl} class="${cls}"/>`;
-        if (w && h) out += gLabel(x + w / 2, y - 0.35, w, c) + gLabel(x - 0.35, y + h / 2, h, c);
-        if (w && h && !draft && w === h) out += gLabel(x + w / 2, y + h / 2, 'רִבּוּעַ', c, 0.42);
+        if (nb.showMeasures && w && h) out += gLabel(x + w / 2, y - 0.35, w, c) + gLabel(x - 0.35, y + h / 2, h, c);
+        if (nb.showMeasures && w && h && !draft && w === h) out += gLabel(x + w / 2, y + h / 2, 'רִבּוּעַ', c, 0.42);
     } else if (s.t === 'circle') {
         const [o, q] = P, r = Math.hypot(q[0] - o[0], q[1] - o[1]);
         out += `<circle cx="${o[0]}" cy="${o[1]}" r="${r}" fill="${c}" fill-opacity="0.07" ${stroke} ${pl} class="${cls}"/>`;
         out += `<line x1="${o[0]}" y1="${o[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${c}" stroke-width="0.05" stroke-dasharray="0.15 0.12"/>` + gDot(o[0], o[1], c);
-        if (r) out += gLabel((o[0] + q[0]) / 2, (o[1] + q[1]) / 2 - 0.3, gNum(Math.round(r * 10) / 10), c, 0.42);
+        if (nb.showMeasures && r) out += gLabel((o[0] + q[0]) / 2, (o[1] + q[1]) / 2 - 0.3, gNum(Math.round(r * 10) / 10), c, 0.42);
     } else if (s.t === 'seg') {
         const [a, b] = P;
         out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" ${stroke} ${pl} class="${cls}"/>` + gDot(a[0], a[1], c) + gDot(b[0], b[1], c);
         const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        if ((a[0] === b[0] || a[1] === b[1]) && len) {
+        if (nb.showMeasures && (a[0] === b[0] || a[1] === b[1]) && len) {
             const nx = a[1] === b[1] ? 0 : -0.35, ny = a[1] === b[1] ? -0.35 : 0;
             out += gLabel((a[0] + b[0]) / 2 + nx, (a[1] + b[1]) / 2 + ny, gNum(len), c, 0.42);
         }
@@ -2734,6 +2747,13 @@ function gShapeSvg(s, isNew, draft) {
         if (P.length === 3) out += `<polygon points="${P.map(q => q.join(',')).join(' ')}" fill="${c}" fill-opacity="0.08" ${stroke} ${pl} class="${cls}"/>`;
         else out += `<polyline points="${P.map(q => q.join(',')).join(' ')}" fill="none" ${stroke}/>`;
         P.forEach(q => { out += gDot(q[0], q[1], c); });
+    } else if (s.t === 'text') {
+        const [x, y] = P[0], txt = escapeHtml(s.v || '');
+        if (s === gEditing) {
+            const w = Math.max(0.9, [...(s.v || '')].length * 0.34 + 0.4);
+            out += `<rect x="${x - w / 2}" y="${y - 0.38}" width="${w}" height="0.76" rx="0.12" fill="rgba(245,158,11,.12)" stroke="#f59e0b" stroke-width="0.05" stroke-dasharray="0.12 0.08"/>`;
+        }
+        out += `<text class="g-label${isNew || s === gEditing ? ' gpop' : ''}" x="${x}" y="${y}" fill="${c}" font-size="0.56" text-anchor="middle" dominant-baseline="middle" direction="rtl" style="${s === gEditing ? 'animation-delay:0s' : ''}">${txt}${s === gEditing ? '<tspan class="g-cursor">|</tspan>' : ''}</text>`;
     } else if (s.t === 'angle') {
         const V = P[0];
         P.slice(1).forEach(q => { out += `<line x1="${V[0]}" y1="${V[1]}" x2="${q[0]}" y2="${q[1]}" ${stroke} ${pl} class="${cls}"/>`; });
@@ -2753,15 +2773,21 @@ function gShapeSvg(s, isNew, draft) {
             const bl = Math.hypot(bx, by);
             if (bl < 0.01) { bx = -ua[1]; by = ua[0]; } else { bx /= bl; by /= bl; }
             const d = r + 0.75;
-            out += gLabel(V[0] + bx * d, V[1] + by * d - 0.22, `${info.deg}°`, c, 0.46);
-            out += gLabel(V[0] + bx * d, V[1] + by * d + 0.28, info.kind, c, 0.38);
+            if (nb.showMeasures) {
+                out += gLabel(V[0] + bx * d, V[1] + by * d - 0.22, `${info.deg}°`, c, 0.46);
+                out += gLabel(V[0] + bx * d, V[1] + by * d + 0.28, info.kind, c, 0.38);
+            }
         }
     }
     return `<g>${out}</g>`;
 }
 function gRender() {
     const sh = $('nb-shapes'); if (!sh) return;
-    sh.innerHTML = nb.shapes.map((s, i) => gShapeSvg(s, i === gNewIndex, false)).join('');
+    sh.innerHTML = nb.shapes.map((s, i) => {
+        const fresh = i === gNewIndex || (gNewFrom >= 0 && i >= gNewFrom);
+        const svg = gShapeSvg(s, fresh, false);
+        return gNewFrom >= 0 && i >= gNewFrom ? svg.replace('<g>', `<g style="--gd:${((i - gNewFrom) * 0.3).toFixed(2)}s">`) : svg;
+    }).join('');
     let d = '';
     if (gDraft) {
         const pts = gDraft.p.map(q => [q.x, q.y]);
@@ -2776,6 +2802,135 @@ function gRender() {
     }
     $('nb-draft').innerHTML = d;
 }
+// ---------- Her own numbers on shapes ----------
+function gTextDown(e) {
+    const m = gMetrics();
+    const fp = { x: (e.clientX - m.x0) / m.sx, y: (e.clientY - m.y0) / m.sy };
+    const hit = nb.shapes.find(s => s.t === 'text' && s !== gEditing && Math.hypot(s.p[0][0] - fp.x, s.p[0][1] - fp.y) < 0.7);
+    gFinishText();
+    if (hit) gEditing = hit;
+    else {
+        gEditing = { t: 'text', p: [[Math.round(fp.x * 2) / 2, Math.round(fp.y * 2) / 2]], v: '', c: gColor };
+        nb.shapes.push(gEditing);
+    }
+    sfx.click();
+    $('nb-hint-line').textContent = '🏷️ הַקְלִידִי מִסְפָּר (אֶפְשָׁר גַּם ס"מ / מ\' / °). הַקָּשָׁה בְּמָקוֹם אַחֵר = מִסְפָּר חָדָשׁ.';
+    gRender();
+}
+function gTextKey(k) {
+    if (!gEditing) {
+        if (nbMode !== 'g-text') return;
+        showToast('🏷️ קֹדֶם הַקִּישִׁי עַל הַמָּקוֹם שֶׁבּוֹ רוֹצִים לִכְתֹּב', 1800);
+        return;
+    }
+    const chars = [...(gEditing.v || '')];
+    if (k === '⌫') chars.pop();
+    else if (k === '🗑') chars.length = 0;
+    else if (k === '↵') { gFinishText(); gRender(); return; }
+    else if (['←', '→', '↑', '↓'].includes(k)) {
+        const d = { '←': [-0.5, 0], '→': [0.5, 0], '↑': [0, -0.5], '↓': [0, 0.5] }[k];
+        gEditing.p[0][0] = Math.max(0, Math.min(NB_COLS, gEditing.p[0][0] + d[0]));
+        gEditing.p[0][1] = Math.max(0, Math.min(NB_ROWS, gEditing.p[0][1] + d[1]));
+    }
+    else { const add = k === '␣' ? ' ' : k; if (chars.length + [...add].length <= 10) chars.push(...add); }
+    gEditing.v = chars.join('');
+    sfx.pen();
+    gRender();
+    nbSave();
+}
+function gFinishText() {
+    if (!gEditing) return;
+    if (!gEditing.v || !gEditing.v.trim()) nb.shapes = nb.shapes.filter(s => s !== gEditing);
+    gEditing = null;
+    nbSave();
+}
+function gToggleMeasures() {
+    nb.showMeasures = !nb.showMeasures;
+    gUpdateMeasuresBtn();
+    gRender();
+    nbSave();
+    sfx.click();
+}
+function gUpdateMeasuresBtn() {
+    const b = $('g-measures');
+    b.classList.toggle('on', !!nb.showMeasures);
+    b.textContent = `🔢 מִסְפָּרִים אוֹטוֹמָטִיִּים: ${nb.showMeasures ? 'דָּלוּק' : 'כָּבוּי'}`;
+}
+
+// ---------- Help drawing: sketch the current geometry question ----------
+function gBuildHelp(d) {
+    const C = '#2563eb', T = '#dc2626', out = [];
+    const txt = (x, y, v) => out.push({ t: 'text', p: [[x, y]], v: String(v), c: T });
+    if (d.kind === 'rect') {
+        const realW = d.len, realH = d.wid === '?' ? d.real : d.wid;
+        let w = realW, h = realH;
+        if (!(d.grid && w <= 12 && h <= 9)) {
+            const k = Math.min(10 / w, 7 / h);
+            w = Math.max(2, Math.round(w * k)); h = Math.max(2, Math.round(h * k));
+        }
+        const x0 = Math.round((NB_COLS - w) / 2), y0 = Math.max(1, Math.round((NB_ROWS - h) / 2));
+        out.push({ t: 'rect', p: [[x0, y0], [x0 + w, y0 + h]], c: C });
+        txt(x0 + w / 2, y0 - 0.5, `${d.len} ${d.unit}`);
+        txt(x0 + w / 2, y0 + h + 0.5, d.len);
+        txt(x0 - 0.7, y0 + h / 2, d.wid);
+        txt(x0 + w + 0.7, y0 + h / 2, d.wid);
+    } else if (d.kind === 'tri') {
+        const sides = [...d.sides].sort((a, b) => a - b);
+        // base = the side that differs (isosceles) or the longest
+        const base = sides[0] === sides[1] && sides[1] !== sides[2] ? sides[2] : sides[1] === sides[2] && sides[0] !== sides[1] ? sides[0] : sides[2];
+        const rest = [...sides]; rest.splice(rest.indexOf(base), 1);
+        const [a, b] = rest, c = base;
+        const ax = (a * a - b * b + c * c) / (2 * c), ay = -Math.sqrt(Math.max(0, a * a - ax * ax));
+        const xs = [0, c, ax], minX = Math.min(...xs), maxX = Math.max(...xs);
+        const k = Math.min(10 / (maxX - minX), 7 / Math.abs(ay));
+        const ox = (NB_COLS - (maxX - minX) * k) / 2, oy = 9.5;
+        const P = [[0, 0], [c, 0], [ax, ay]].map(([x, y]) => [+(ox + (x - minX) * k).toFixed(2), +(oy + y * k).toFixed(2)]);
+        out.push({ t: 'tri', p: P, c: C });
+        const cx = (P[0][0] + P[1][0] + P[2][0]) / 3, cy = (P[0][1] + P[1][1] + P[2][1]) / 3;
+        [[P[0], P[1], `${c} ס"מ`], [P[0], P[2], `${a} ס"מ`], [P[1], P[2], `${b} ס"מ`]].forEach(([u, v, label]) => {
+            const mx = (u[0] + v[0]) / 2, my = (u[1] + v[1]) / 2;
+            let dx = mx - cx, dy = my - cy; const L = Math.hypot(dx, dy) || 1;
+            txt(+(mx + dx / L * 0.75).toFixed(2), +(my + dy / L * 0.75).toFixed(2), label);
+        });
+    } else if (d.kind === 'angle') {
+        const V = [d.deg > 90 ? 8.5 : 3, 9], r = d.deg * Math.PI / 180;
+        out.push({ t: 'angle', p: [V, [V[0] + 5, 9], [+(V[0] + 5 * Math.cos(r)).toFixed(2), +(9 - 5 * Math.sin(r)).toFixed(2)]], c: C });
+        txt(7, 11, 'פִּנַּת דַּף = 90°');
+    } else if (d.kind === 'lines') {
+        const cx = 7, cy = 6, half = 4.5;
+        const seg = (deg, ox = 0, oy = 0) => {
+            const r = deg * Math.PI / 180, dx = Math.cos(r) * half, dy = Math.sin(r) * half;
+            return { t: 'seg', p: [[+(cx + ox - dx).toFixed(2), +(cy + oy - dy).toFixed(2)], [+(cx + ox + dx).toFixed(2), +(cy + oy + dy).toFixed(2)]], c: C };
+        };
+        if (d.idx === 0) {
+            const r = (d.rot + 90) * Math.PI / 180, off = 1.3;
+            out.push(seg(d.rot, Math.cos(r) * off, Math.sin(r) * off), seg(d.rot, -Math.cos(r) * off, -Math.sin(r) * off));
+        } else out.push(seg(d.rot), seg(d.rot + (d.idx === 1 ? 90 : d.phi)));
+    }
+    return out;
+}
+function gHelpDraw() {
+    const d = currentMission && currentMission.draw;
+    if (!d) { showToast('💡 שִׂרְטוּט עֶזְרָה זָמִין בִּשְׁאֵלוֹת גֵּאוֹמֶטְרְיָה: מַלְבֵּן, מְשֻׁלָּשׁ, זָוִית וִישָׁרִים', 2600); return; }
+    gFinishText();
+    const go = () => {
+        const shapes = gBuildHelp(d);
+        gNewFrom = nb.shapes.length;
+        nb.shapes.push(...shapes);
+        gRender();
+        gNewFrom = -1;
+        nbSave();
+        sfx.hint();
+        const r = $('g-help').getBoundingClientRect();
+        burst(r.left + r.width / 2, r.top, 24, 5, ['#fcd34d', '#f59e0b', '#ffffff']);
+        $('nb-hint-line').textContent = '💡 הִנֵּה הַשִּׂרְטוּט שֶׁל הַשְּׁאֵלָה! אֶפְשָׁר לְהוֹסִיף עָלָיו מִסְפָּרִים וְחִשּׁוּבִים.';
+    };
+    if (!nbIsEmpty()) {
+        nb.history.unshift({ t: Date.now(), title: '📓 דַּף שֶׁהָיָה פָּתוּחַ', cells: nbPack(nb.cells), shapes: nb.shapes.slice() });
+        showToast('📄 הַדַּף הַקּוֹדֵם נִשְׁמַר בַּהִיסְטוֹרְיָה', 1800);
+        nbFlip(() => { nb.cells = nbBlank(); nb.shapes = []; nbSel = { r: 0, c: 1 }; nbRenderAll(); go(); });
+    } else go();
+}
 let nbBuilt = false;
 function openNotebook() {
     if (!nbBuilt) { nbLoad(); nbBuild(); nbBuilt = true; }
@@ -2786,10 +2941,12 @@ function openNotebook() {
     nbSetMode(nbMode);
     nbRenderAll();
     gRender();
+    gUpdateMeasuresBtn();
+    $('g-help').classList.toggle('glow', !!(currentMission && currentMission.draw));
     setTimeout(gLayout, 650);
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 }
-function closeNotebook() { $('notebook-modal').classList.remove('show'); nbSave(); }
+function closeNotebook() { gFinishText(); $('notebook-modal').classList.remove('show'); nbSave(); }
 $('notebook-modal').addEventListener('click', e => { if (e.target.id === 'notebook-modal') closeNotebook(); });
 
 function nbTokens() {
@@ -2850,10 +3007,12 @@ function nbFlip(after) {
     setTimeout(after, 330);
 }
 function nbClear() {
+    gFinishText();
     if (nbIsEmpty()) return;
     nbFlip(() => { nb.cells = nbBlank(); nb.shapes = []; gDraft = null; nbSel = { r: 0, c: 1 }; nbRowStart = 1; nbRenderAll(); gRender(); nbSave(); });
 }
 function nbSaveNew() {
+    gFinishText();
     if (nbIsEmpty()) { showToast('📓 הַדַּף רֵיק – אֵין מָה לִשְׁמֹר', 1600); return; }
     nb.history.unshift({
         t: Date.now(),
