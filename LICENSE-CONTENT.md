@@ -1,7 +1,7 @@
 # Content License – CC BY 4.0
 
 The educational content of **mathHero** – the images (`hero_mission.jpg`, `hero_victory.jpg`),
-the video (`hero_story.mp4`), the story texts, questions, hints and explanations – is licensed under the
+the video (`hero_story.mp4`), the scienceHero images and video (`scienceHero/scene_*.jpg`, `scienceHero/hero_body.mp4`), the story texts, questions (including `scienceHero/questions.js`), hints and explanations – is licensed under the
 **Creative Commons Attribution 4.0 International License (CC BY 4.0)**:
 https://creativecommons.org/licenses/by/4.0/
 
@@ -12,7 +12,7 @@ and indicate if changes were made.
 Suggested attribution:
 > "mathHero – סוכנת-על: מבצע הצלת העולם" by Hanassy (https://github.com/Hanassy/mathHero-), CC BY 4.0
 
-The program code (`index.html`) is licensed separately under the MIT License – see [`LICENSE`](LICENSE).
+The program code (`index.html`, `scienceHero/index.html`) is licensed separately under the MIT License – see [`LICENSE`](LICENSE).
 
 ---
 
