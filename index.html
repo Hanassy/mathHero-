@@ -1095,7 +1095,7 @@ const topics = {
     multiplication: { name: 'כֶּפֶל וְחִלּוּק', icon: '✖️', focus: 1.0, start: 34 },
     orderOps:       { name: 'סֵדֶר פְּעֻלּוֹת', icon: '🧮', focus: 0.7, start: 34 },
     sequences:      { name: 'סְדָרוֹת', icon: '🔢', focus: 0.7, start: 34 },
-    fractions:      { name: 'שְׁבָרִים', icon: '🍕', focus: 0.4, start: 0 }
+    fractions:      { name: 'שְׁבָרִים', icon: '🍕', focus: 0.8, start: 0 }
 };
 function freshState() {
     const t = {};
@@ -1751,7 +1751,16 @@ const generators = {
     },
 
     fractions(lv) {
-        if (lv === 1) {
+        // every level mixes several question kinds, from recognising a fraction up to mixed numbers
+        const kinds = {
+            1: ['shade', 'parts', 'unitOf'],
+            2: ['compare', 'equiv', 'addSub', 'line'],
+            3: ['partOf', 'compareDiff', 'whole', 'mixed', 'rest']
+        }[lv];
+        const kind = pick(kinds);
+        const barHint = (n, d) => fracBarSvg(n, d, 200);
+
+        if (kind === 'shade') {
             const d = pick([2, 3, 4, 5, 6, 8]), n = randInt(1, d - 1);
             const ans = `${n}/${d}`;
             const opts = new Set([ans]);
@@ -1762,10 +1771,37 @@ const generators = {
                 spoken: 'הִתְבּוֹנְנִי בַּמַּד. אֵיזֶה חֵלֶק מִמֶּנּוּ צָבוּעַ?',
                 type: 'options', optionsLtr: true, options: [...opts], answer: ans,
                 hint: `💡 <strong>מוֹנֶה וּמְכַנֶּה:</strong><br>הַמְּכַנֶּה (לְמַטָּה) = כַּמָּה חֲלָקִים שָׁוִים יֵשׁ בְּסַךְ הַכֹּל.<br>הַמּוֹנֶה (לְמַעְלָה) = כַּמָּה מֵהֶם צְבוּעִים.`,
-                solution: [`יֵשׁ ${L(d)} חֲלָקִים בְּסַךְ הַכֹּל, וּ-${L(n)} מֵהֶם צְבוּעִים.`, `לָכֵן הַשֶּׁבֶר הוּא ${L(ans)}.`]
+                solution: [`יֵשׁ ${L(d)} חֲלָקִים בְּסַךְ הַכֹּל, וּ-${L(n)} מֵהֶם צְבוּעִים.`, `לָכֵן הַשֶּׁבֶר הוּא ${L(ans)}.`],
+                diagnose: v => (v === `${d - n}/${d}` && d - n !== n) ? 'סָפַרְתְּ אֶת הַחֲלָקִים הַלְּבָנִים. הַשְּׁאֵלָה הִיא עַל הַחֲלָקִים הַ<strong>צְּבוּעִים</strong>.' : null
             };
         }
-        if (lv === 2) {
+        if (kind === 'parts') {
+            const d = randInt(3, 9), n = randInt(1, d - 1), askTop = Math.random() < 0.5;
+            const name = askTop ? 'הַמּוֹנֶה' : 'הַמְּכַנֶּה';
+            return {
+                question: `בַּשֶּׁבֶר שֶׁלְּפָנַיִךְ – מָה ${name}?`,
+                math: [frac(n, d)],
+                spoken: `בַּשֶּׁבֶר ${n} חֲלָקִים מִתּוֹךְ ${d}, מָה ${name}?`,
+                type: 'input', answer: askTop ? n : d,
+                hint: `💡 <strong>מוֹנֶה</strong> לְמַעְלָה – כַּמָּה חֲלָקִים לוֹקְחִים.<br><strong>מְכַנֶּה</strong> לְמַטָּה – לְכַמָּה חֲלָקִים שָׁוִים חִלַּקְנוּ.<br>טְרִיק: מְ<strong>כַ</strong>נֶּה = <strong>כ</strong>ֻּלָּם, הַשָּׁלֵם.`,
+                solution: [`הַמּוֹנֶה הוּא ${L(n)} (לְמַעְלָה), הַמְּכַנֶּה הוּא ${L(d)} (לְמַטָּה).`],
+                diagnose: v => v === (askTop ? d : n) ? `זֶה ${askTop ? 'הַמְּכַנֶּה' : 'הַמּוֹנֶה'}. ${askTop ? 'הַמּוֹנֶה לְמַעְלָה' : 'הַמְּכַנֶּה לְמַטָּה'}!` : null
+            };
+        }
+        if (kind === 'unitOf') {
+            const d = pick([2, 3, 4]), k = randInt(2, 6), total = d * k;
+            const word = { 2: 'חֲצִי', 3: 'שְׁלִישׁ', 4: 'רֶבַע' }[d];
+            return {
+                question: `לַסּוֹכֶנֶת יֵשׁ ${total} כּוֹכְבֵי אֵנֶרְגִּיָה. ${word} מֵהֶם זוֹהֲרִים בְּזָהָב. כַּמָּה כּוֹכָבִים זוֹהֲרִים?`,
+                math: [frac(1, d), 'מִתּוֹךְ', total, '=', BLANK], mathRtl: true,
+                spoken: `כַּמָּה זֶה ${word} מִתּוֹךְ ${total}?`,
+                type: 'input', answer: k,
+                hint: `💡 <strong>${word} = לְחַלֵּק לְ-${d} קְבוּצוֹת שָׁווֹת</strong> וְלָקַחַת קְבוּצָה אַחַת.<br>${L(`${total} : ${d} = ?`)}`,
+                solution: [L(`${total} : ${d} = ${k}`), `${word} מִתּוֹךְ ${L(total)} הוּא ${L(k)}.`],
+                diagnose: v => (v === total - k && total - k !== k) ? `זֶה מָה שֶׁנִּשְׁאַר. כַּמָּה יֵשׁ בִּקְבוּצָה <strong>אַחַת</strong>?` : null
+            };
+        }
+        if (kind === 'compare') {
             let n1, d1, n2, d2;
             if (Math.random() < 0.6) { d1 = d2 = pick([5, 6, 7, 8, 9, 10]); n1 = randInt(1, d1 - 1); n2 = randInt(1, d1 - 1); }
             else { n1 = n2 = 1; d1 = randInt(2, 9); do { d2 = randInt(2, 9); } while (d2 === d1); }
@@ -1778,11 +1814,108 @@ const generators = {
                 spoken: `אֵיזֶה שֶׁבֶר גָּדוֹל יוֹתֵר: ${n1} חֲלָקִים מִתּוֹךְ ${d1}, אוֹ ${n2} חֲלָקִים מִתּוֹךְ ${d2}?`,
                 type: 'options', optionsLtr: true, options: ['>', '<', '='], answer: ans,
                 hint: same
-                    ? `💡 <strong>אוֹתוֹ מְכַנֶּה:</strong><br>הַחֲלָקִים בְּאוֹתוֹ גֹּדֶל, אָז מִי שֶׁיֵּשׁ לוֹ יוֹתֵר חֲלָקִים (מוֹנֶה גָּדוֹל יוֹתֵר) – גָּדוֹל יוֹתֵר.<br>${fracBarSvg(n1, d1, 200)}<br>${fracBarSvg(n2, d2, 200)}`
-                    : `💡 <strong>אוֹתוֹ מוֹנֶה (1):</strong><br>כְּכָל שֶׁמְּחַלְּקִים פִּיצָה לְיוֹתֵר חֲלָקִים – כָּל חֵלֶק <strong>קָטָן</strong> יוֹתֵר!<br>${fracBarSvg(n1, d1, 200)}<br>${fracBarSvg(n2, d2, 200)}`,
+                    ? `💡 <strong>אוֹתוֹ מְכַנֶּה:</strong><br>הַחֲלָקִים בְּאוֹתוֹ גֹּדֶל, אָז מִי שֶׁיֵּשׁ לוֹ יוֹתֵר חֲלָקִים (מוֹנֶה גָּדוֹל יוֹתֵר) – גָּדוֹל יוֹתֵר.<br>${barHint(n1, d1)}<br>${barHint(n2, d2)}`
+                    : `💡 <strong>אוֹתוֹ מוֹנֶה (1):</strong><br>כְּכָל שֶׁמְּחַלְּקִים פִּיצָה לְיוֹתֵר חֲלָקִים – כָּל חֵלֶק <strong>קָטָן</strong> יוֹתֵר!<br>${barHint(n1, d1)}<br>${barHint(n2, d2)}`,
                 solution: [same ? `${L(n1)} חֲלָקִים לְעֻמַּת ${L(n2)} חֲלָקִים מֵאוֹתוֹ גֹּדֶל.` : `חֵלֶק מִתּוֹךְ ${L(d1)} לְעֻמַּת חֵלֶק מִתּוֹךְ ${L(d2)}.`, L(`${n1}/${d1} ${ans} ${n2}/${d2}`)]
             };
         }
+        if (kind === 'equiv') {
+            const d = randInt(2, 5), n = randInt(1, d - 1), m = randInt(2, 4), D = d * m;
+            return {
+                question: 'שְׁבָרִים שְׁקוּלִים – אוֹתוֹ גֹּדֶל, מִסְפָּרִים אֲחֵרִים. הַשְׁלִימִי אֶת הַמּוֹנֶה:',
+                math: [frac(n, d), '=', frac(BLANK, D)],
+                spoken: `${n} חֲלָקִים מִתּוֹךְ ${d} שָׁוֶה לְכַמָּה חֲלָקִים מִתּוֹךְ ${D}?`,
+                type: 'input', answer: n * m,
+                hint: `💡 <strong>מָה קָרָה לַמְּכַנֶּה?</strong> ${L(`${d} × ${m} = ${D}`)}.<br>כְּדֵי שֶׁהַשֶּׁבֶר יִשָּׁאֵר שָׁוֶה – כּוֹפְלִים גַּם אֶת הַמּוֹנֶה <strong>בְּאוֹתוֹ מִסְפָּר</strong>.${D <= 12 ? `<br>${barHint(n, d)}<br>${barHint(n * m, D)}` : ''}`,
+                solution: [`הַמְּכַנֶּה גָּדַל פִּי ${L(m)}: ${L(`${d} × ${m} = ${D}`)}`, `גַּם הַמּוֹנֶה: ${L(`${n} × ${m} = ${n * m}`)}`, L(`${n}/${d} = ${n * m}/${D}`)],
+                diagnose: v => v === n + (D - d) ? 'הוֹסַפְתְּ לַמּוֹנֶה אֶת אוֹתוֹ מִסְפָּר. בִּשְׁבָרִים שְׁקוּלִים <strong>כּוֹפְלִים</strong> – לֹא מוֹסִיפִים.' : null
+            };
+        }
+        if (kind === 'addSub') {
+            const d = randInt(5, 10), add = Math.random() < 0.55;
+            let n1, n2;
+            if (add) { n1 = randInt(1, d - 2); n2 = randInt(1, d - 1 - n1); }
+            else { n1 = randInt(2, d - 1); n2 = randInt(1, n1 - 1); }
+            const ans = add ? n1 + n2 : n1 - n2;
+            return {
+                question: add ? 'חַבְּרִי אֶת הַשְּׁבָרִים:' : 'חַסְּרִי אֶת הַשְּׁבָרִים:',
+                math: [frac(n1, d), add ? '+' : '−', frac(n2, d), '=', frac(BLANK, d)],
+                spoken: `${n1} חֲלָקִים מִתּוֹךְ ${d}, ${add ? 'וְעוֹד' : 'פָּחוֹת'} ${n2} חֲלָקִים מִתּוֹךְ ${d}. כַּמָּה חֲלָקִים מִתּוֹךְ ${d}?`,
+                type: 'input', answer: ans,
+                hint: `💡 <strong>כְּשֶׁהַמְּכַנֶּה זֵהֶה – הוּא לֹא מִשְׁתַּנֶּה!</strong><br>${add ? 'מְחַבְּרִים' : 'מְחַסְּרִים'} רַק אֶת הַמּוֹנִים: ${L(`${n1} ${add ? '+' : '−'} ${n2}`)}`,
+                solution: [L(`${n1} ${add ? '+' : '−'} ${n2} = ${ans}`), L(`${n1}/${d} ${add ? '+' : '−'} ${n2}/${d} = ${ans}/${d}`)],
+                diagnose: v => (add ? v === n1 - n2 : v === n1 + n2) ? `שִׂימִי לֵב לַסִּימָן – זֶה ${add ? 'חִבּוּר' : 'חִסּוּר'}.` : null
+            };
+        }
+        if (kind === 'line') {
+            const d = pick([3, 4, 5, 6, 8]), n = randInt(1, d - 1), ans = `${n}/${d}`;
+            const opts = new Set([ans]);
+            [`${n}/${d + 1}`, `${Math.min(n + 1, d)}/${d}`, `${Math.max(1, n - 1)}/${d}`, `${n}/${d - 1}`, `1/${n + 1}`].forEach(o => { if (opts.size < 4 && o !== ans) opts.add(o); });
+            return {
+                question: 'אֵיזֶה שֶׁבֶר מְסֻמָּן עַל הַיָּשָׁר?',
+                svg: fracLineSvg(n, d),
+                spoken: 'הַקֶּטַע בֵּין 0 לְ-1 מְחֻלָּק לַחֲלָקִים שָׁוִים. אֵיזֶה שֶׁבֶר מְסֻמָּן?',
+                type: 'options', optionsLtr: true, options: [...opts], answer: ans,
+                hint: `💡 <strong>שְׁנֵי צְעָדִים:</strong><br>1. לְכַמָּה חֲלָקִים שָׁוִים מְחֻלָּק הַקֶּטַע מִ-0 עַד 1? (זֶה הַמְּכַנֶּה)<br>2. כַּמָּה קְפִיצוֹת מִ-0 עַד הַסִּימָן? (זֶה הַמּוֹנֶה)`,
+                solution: [`הַקֶּטַע מְחֻלָּק לְ-${L(d)} חֲלָקִים, וְהַסִּימָן אַחֲרֵי ${L(n)} קְפִיצוֹת.`, `לָכֵן: ${L(ans)}`],
+                diagnose: v => v === `${n}/${d + 1}` ? 'סָפַרְתְּ אֶת הַקַּוִּים הַקְּטַנִּים. הַמְּכַנֶּה הוּא מִסְפַּר ה<strong>חֲלָקִים</strong> (הָרְוָחִים) בֵּין 0 לְ-1.' : null
+            };
+        }
+        if (kind === 'compareDiff') {
+            const d1 = pick([2, 3, 4, 5]), m = randInt(2, 3), d2 = d1 * m;
+            const n1 = randInt(1, d1 - 1);
+            let n2; do { n2 = randInt(1, d2 - 1); } while (n2 === n1 * m && Math.random() < 0.7);
+            const flip = Math.random() < 0.5;
+            const [a, b] = flip ? [[n2, d2], [n1, d1]] : [[n1, d1], [n2, d2]];
+            const v1 = a[0] / a[1], v2 = b[0] / b[1];
+            const ans = v1 > v2 ? '>' : v1 < v2 ? '<' : '=';
+            return {
+                question: 'אֵיזֶה סִימָן מַתְאִים? (הַמְּכַנִּים שׁוֹנִים!)',
+                math: [frac(a[0], a[1]), BLANK, frac(b[0], b[1])],
+                spoken: `מָה גָּדוֹל יוֹתֵר: ${a[0]} חֲלָקִים מִתּוֹךְ ${a[1]}, אוֹ ${b[0]} חֲלָקִים מִתּוֹךְ ${b[1]}?`,
+                type: 'options', optionsLtr: true, options: ['>', '<', '='], answer: ans,
+                hint: `💡 <strong>מְבִיאִים לְאוֹתוֹ מְכַנֶּה:</strong><br>${L(`${n1}/${d1}`)} – כִּפְלִי מוֹנֶה וּמְכַנֶּה בְּ-${L(m)}: ${L(`${n1}/${d1} = ${n1 * m}/${d2}`)}.<br>עַכְשָׁו הַמְּכַנִּים שָׁוִים – מַשְׁוִים רַק מוֹנִים.<br>${barHint(a[0], a[1])}<br>${barHint(b[0], b[1])}`,
+                solution: [L(`${n1}/${d1} = ${n1 * m}/${d2}`), `מַשְׁוִים ${L(`${n1 * m}/${d2}`)} לְ-${L(`${n2}/${d2}`)}`, L(`${a[0]}/${a[1]} ${ans} ${b[0]}/${b[1]}`)],
+                diagnose: v => (v === (a[0] > b[0] ? '>' : a[0] < b[0] ? '<' : '=') && v !== ans) ? 'הִשְׁוֵית רַק אֶת הַמּוֹנִים – אֲבָל הַחֲלָקִים בְּגֹדֶל שׁוֹנֶה! קֹדֶם מְבִיאִים לְאוֹתוֹ מְכַנֶּה.' : null
+            };
+        }
+        if (kind === 'whole') {
+            const d = randInt(2, 5), k = randInt(3, 8), n = Math.random() < 0.5 ? 1 : randInt(1, d - 1);
+            return {
+                question: `${n === 1 ? `1/${d}` : `${n}/${d}`} מִתַּלְמִידֵי הַכִּתָּה הֵם ${n * k} יְלָדִים. כַּמָּה תַּלְמִידִים יֵשׁ בְּכָל הַכִּתָּה?`,
+                math: [frac(n, d), 'מִתּוֹךְ', BLANK, '=', n * k], mathRtl: true,
+                spoken: `${n} חֲלָקִים מִתּוֹךְ ${d} מֵהַכִּתָּה הֵם ${n * k} יְלָדִים. כַּמָּה בְּכָל הַכִּתָּה?`,
+                type: 'input', answer: d * k,
+                hint: `💡 <strong>מִן הַחֵלֶק אֶל הַשָּׁלֵם:</strong><br>${n === 1 ? `חֵלֶק אֶחָד = ${L(k)} יְלָדִים.` : `${L(n)} חֲלָקִים = ${L(n * k)}, אָז חֵלֶק אֶחָד = ${L(`${n * k} : ${n}`)}.`}<br>הַשָּׁלֵם הוּא ${L(d)} חֲלָקִים כָּאֵלֶּה.`,
+                solution: [n === 1 ? `חֵלֶק אֶחָד: ${L(k)}` : `חֵלֶק אֶחָד: ${L(`${n * k} : ${n} = ${k}`)}`, `כָּל הַכִּתָּה: ${L(`${k} × ${d} = ${d * k}`)}`],
+                diagnose: v => v === k ? 'זֶה רַק חֵלֶק <strong>אֶחָד</strong>. כַּמָּה חֲלָקִים כָּאֵלֶּה יֵשׁ בַּשָּׁלֵם?' : null
+            };
+        }
+        if (kind === 'mixed') {
+            const d = randInt(3, 8), w = randInt(1, 2), r = randInt(1, d - 1), a = w * d + r;
+            return {
+                question: 'הַפְכִי לְמִסְפָּר מְעֹרָב – כַּמָּה שְׁלֵמִים, וְכַמָּה חֲלָקִים נִשְׁאֲרוּ?',
+                math: [frac(a, d), '=', w, frac(BLANK, d)],
+                spoken: `${a} חֲלָקִים מִתּוֹךְ ${d} שָׁוֶה ${w} שְׁלֵמִים וְעוֹד כַּמָּה חֲלָקִים מִתּוֹךְ ${d}?`,
+                type: 'input', answer: r,
+                hint: `💡 <strong>${L(`${d}/${d}`)} = שָׁלֵם אֶחָד.</strong><br>כַּמָּה פְּעָמִים ${L(d)} נִכְנָס בְּ-${L(a)}? וּמָה נִשְׁאָר?`,
+                solution: [L(`${w} × ${d} = ${w * d}`), L(`${a} − ${w * d} = ${r}`), `לָכֵן ${L(`${a}/${d}`)} = ${L(w)} שְׁלֵמִים וְ-${L(`${r}/${d}`)}`],
+                diagnose: v => v === a - d && w === 2 ? `שֵׁם כָּתוּב ${w} שְׁלֵמִים – צָרִיךְ לְהוֹרִיד ${L(d)} פַּעֲמַיִם.` : null
+            };
+        }
+        if (kind === 'rest') {
+            const d = randInt(3, 10), n = randInt(1, d - 1);
+            return {
+                question: `הַסּוֹכֶנֶת אָכְלָה ${n}/${d} מֵהַפִּיצָה. אֵיזֶה חֵלֶק מֵהַפִּיצָה נִשְׁאַר?`,
+                math: [1, '−', frac(n, d), '=', frac(BLANK, d)],
+                spoken: `אָכְלָה ${n} חֲלָקִים מִתּוֹךְ ${d}. כַּמָּה חֲלָקִים מִתּוֹךְ ${d} נִשְׁאֲרוּ?`,
+                type: 'input', answer: d - n,
+                hint: `💡 <strong>פִּיצָה שְׁלֵמָה = ${L(`${d}/${d}`)}</strong><br>${L(`${d}/${d} − ${n}/${d} = ?/${d}`)}<br>${barHint(n, d)}`,
+                solution: [`שָׁלֵם = ${L(`${d}/${d}`)}`, L(`${d} − ${n} = ${d - n}`), `נִשְׁאַר ${L(`${d - n}/${d}`)}`],
+                diagnose: v => (v === n && d - n !== n) ? 'זֶה הַחֵלֶק שֶׁ<strong>אָכְלָה</strong>. כַּמָּה <strong>נִשְׁאַר</strong>?' : null
+            };
+        }
+        // 'partOf' – a fraction of an amount
         const d = pick([2, 3, 4, 5]), n = randInt(1, d - 1), k = randInt(2, 6), total = d * k;
         return {
             question: `בַּמַּחְסָן יֵשׁ ${total} גְּבִישִׁים. ${n}/${d} מֵהֶם כְּחֻלִּים. כַּמָּה גְּבִישִׁים כְּחֻלִּים?`,
@@ -1790,7 +1923,8 @@ const generators = {
             spoken: `${n} חֲלָקִים מִתּוֹךְ ${d}, שֶׁל ${total} גְּבִישִׁים. כַּמָּה זֶה?`,
             type: 'input', answer: n * k,
             hint: `💡 <strong>חֵלֶק מִכַּמּוּת:</strong><br>1. חַלְּקִי אֶת ${L(total)} לְ-${L(d)} קְבוּצוֹת שָׁווֹת.<br>2. קְחִי ${L(n)} קְבוּצוֹת.`,
-            solution: [`1. ${L(`${total} : ${d} = ${k}`)} בְּכָל קְבוּצָה`, `2. ${L(`${k} × ${n} = ${n * k}`)}`]
+            solution: [`1. ${L(`${total} : ${d} = ${k}`)} בְּכָל קְבוּצָה`, `2. ${L(`${k} × ${n} = ${n * k}`)}`],
+            diagnose: v => (v === k && n > 1) ? `זוֹ קְבוּצָה אַחַת. צָרִיךְ ${L(n)} קְבוּצוֹת.` : null
         };
     }
 };
@@ -1874,6 +2008,25 @@ function fracBarSvg(n, d, width = 260) {
     return `<svg width="${width}" height="${h + 16}" viewBox="0 0 ${width} ${h + 16}" style="direction:ltr">
         <defs><linearGradient id="fg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
         ${cells}
+    </svg>`;
+}
+
+function fracLineSvg(n, d) {
+    const x0 = 24, x1 = 276, y = 46, step = (x1 - x0) / d;
+    let ticks = '';
+    for (let i = 0; i <= d; i++) {
+        const big = i === 0 || i === d;
+        ticks += `<line x1="${x0 + i * step}" y1="${y - (big ? 12 : 8)}" x2="${x0 + i * step}" y2="${y + (big ? 12 : 8)}" stroke="#e2e8f0" stroke-width="${big ? 3 : 2}" class="fill-in" style="transform-box:fill-box; transform-origin:50% 50%; animation-delay:${i * 0.07}s"/>`;
+    }
+    const px = x0 + n * step;
+    return `<svg width="300" height="96" viewBox="0 0 300 96" style="direction:ltr; background:#090d16; border-radius:12px; border:1px solid #38bdf8;">
+        <line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="#e2e8f0" stroke-width="2.5" class="draw" style="stroke-dasharray:300;stroke-dashoffset:300"/>
+        ${ticks}
+        <text x="${x0}" y="${y + 32}" fill="#f8fafc" font-size="16" font-weight="bold" text-anchor="middle">0</text>
+        <text x="${x1}" y="${y + 32}" fill="#f8fafc" font-size="16" font-weight="bold" text-anchor="middle">1</text>
+        <circle cx="${px}" cy="${y}" r="7" fill="#f59e0b"><animate attributeName="r" values="6;9;6" dur="1.6s" repeatCount="indefinite"/></circle>
+        <path d="M ${px} ${y - 30} L ${px} ${y - 12}" stroke="#f59e0b" stroke-width="3"/><path d="M ${px - 6} ${y - 18} L ${px} ${y - 10} L ${px + 6} ${y - 18}" fill="none" stroke="#f59e0b" stroke-width="3"/>
+        <text x="${px}" y="${y - 34}" fill="#f59e0b" font-size="16" font-weight="bold" text-anchor="middle">?</text>
     </svg>`;
 }
 
